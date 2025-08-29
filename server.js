@@ -21,8 +21,8 @@ mongoose
 // ===== Modelo =====
 const userSchema = new mongoose.Schema(
   {
-    nombre: { type: String, required: true },
-    email:  { type: String, required: true, unique: true },
+    nombre:  { type: String, required: true },
+    email:   { type: String, required: true, unique: true },
     password:{ type: String, required: true },
     rol:     { type: String, default: "Usuario" },
   },
@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ email: 1 }, { unique: true });
 const User = mongoose.model("User", userSchema);
 
-// ===== Auth middleware para APIs y HTML protegidos =====
+// ===== Auth middleware =====
 function verifyToken(req, res, next) {
   try {
     const auth = req.headers.authorization || "";
@@ -40,25 +40,23 @@ function verifyToken(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // { id, rol, iat, exp }
     next();
-  } catch (e) {
+  } catch {
     return res.status(401).json({ message: "Token inválido o expirado" });
   }
 }
 
-// ===== Archivos estáticos (tus HTML/CSS/JS) =====
-// Coloca tus .html dentro de /public
-const PUBLIC_DIR = path.join(__dirname, "public");
-app.use(express.static(PUBLIC_DIR));
+// ===== Archivos estáticos (HTML/CSS/JS en la RAÍZ) =====
+const ROOT_DIR = __dirname;
+app.use(express.static(ROOT_DIR));
 
 // Rutas públicas a HTML
-app.get("/", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
-app.get("/Inicio.html", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "Inicio.html")));
+app.get("/", (_req, res) => res.sendFile(path.join(ROOT_DIR, "index.html")));
+app.get("/Inicio.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Inicio.html")));
+app.get("/Mercados.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Mercados.html")));
+app.get("/Administracion.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Administracion.html")));
 
-// Rutas HTML protegidas (requieren token)
-// El truco: el front debe enviar el header Authorization al pedir el HTML.
-app.get("/gestion-usuarios.html", verifyToken, (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "gestion-usuarios.html"));
-});
+// (Opcional) healthcheck para Render
+app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
 
 // ====== APIs ======
 app.post("/register", async (req, res) => {
@@ -82,14 +80,11 @@ app.post("/register", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ message: "Faltan datos en la solicitud" });
-
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Usuario no encontrado" });
-
     const ok = bcrypt.compareSync(password, user.password);
     if (!ok) return res.status(400).json({ message: "Contraseña incorrecta" });
-
     const token = jwt.sign({ id: user._id, rol: user.rol }, process.env.JWT_SECRET, { expiresIn: "1h" });
     return res.json({ token, rol: user.rol, userId: user._id });
   } catch (err) {
