@@ -6,6 +6,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const path = require("path");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 const app = express();
 app.use(express.json());
@@ -18,20 +20,24 @@ mongoose
   .then(() => console.log("Conexión exitosa a MongoDB Atlas"))
   .catch((err) => console.error("Error al conectar a MongoDB:", err));
 
-// ===== Modelo =====
+// ===== Modelo de Usuario =====
 const userSchema = new mongoose.Schema(
   {
     nombre:  { type: String, required: true },
-    email:   { type: String, required: true, unique: true },
+    email:   { type: String, required: true, unique: true, lowercase: true, trim: true },
     password:{ type: String, required: true },
     rol:     { type: String, default: "Usuario" },
+
+    // Recuperación de contraseña
+    resetPasswordTokenHash: { type: String, default: null },
+    resetPasswordExpires:   { type: Date,   default: null },
   },
   { timestamps: true }
 );
 userSchema.index({ email: 1 }, { unique: true });
 const User = mongoose.model("User", userSchema);
 
-// ===== Auth middleware =====
+// ===== Middleware de Auth =====
 function verifyToken(req, res, next) {
   try {
     const auth = req.headers.authorization || "";
@@ -45,20 +51,28 @@ function verifyToken(req, res, next) {
   }
 }
 
-// ===== Archivos estáticos (HTML/CSS/JS en la RAÍZ) =====
+// ===== Estáticos (sirve archivos desde la raíz) =====
 const ROOT_DIR = __dirname;
 app.use(express.static(ROOT_DIR));
-
-// Rutas públicas a HTML
 app.get("/", (_req, res) => res.sendFile(path.join(ROOT_DIR, "index.html")));
 app.get("/Inicio.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Inicio.html")));
 app.get("/Mercados.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Mercados.html")));
 app.get("/Administracion.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Administracion.html")));
+app.get("/reset.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "reset.html"))); // <- NUEVA página
 
-// (Opcional) healthcheck para Render
+// Healthcheck para Render
 app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
 
-// ====== APIs ======
+// ===== Nodemailer (Brevo por ENV) =====
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,                 // p.ej. smtp-relay.brevo.com
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: process.env.SMTP_SECURE === "true",  // true si usas 465
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+});
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
+
+// ===== Rutas existentes =====
 app.post("/register", async (req, res) => {
   const { nombre, email, password } = req.body;
   if (!nombre || !email || !password) {
@@ -129,7 +143,7 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
 app.get("/crypto-prices", async (_req, res) => {
   try {
     const response = await axios.get("https://api.coingecko.com/api/v3/simple/price", {
-      params: { ids: "bitcoin,ethereum,dogecoin", vs_currencies: "usd" }
+      params: { ids: "bitcoin,ethereum,dogecoin", vs_currencies: "usd" },
     });
     return res.json(response.data);
   } catch (error) {
@@ -149,6 +163,79 @@ app.post("/validate-token", (req, res) => {
   });
 });
 
-// ===== Server =====
+// ===== Recuperación de contraseña =====
+
+// 1) Solicitar link de reset (respuesta genérica para no filtrar emails)
+app.post("/auth/request-password-reset", async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ message: "Email requerido" });
+
+  const genericMsg = "Si el correo existe, te enviaremos un enlace para restablecer.";
+  try {
+    const user = await User.findOne({ email }).select("_id email");
+    if (!user) return res.json({ message: genericMsg });
+
+    const tokenPlain = crypto.randomBytes(32).toString("hex");
+    const tokenHash  = crypto.createHash("sha256").update(tokenPlain).digest("hex");
+    const expires    = new Date(Date.now() + 15 * 60 * 1000);
+
+    user.resetPasswordTokenHash = tokenHash;
+    user.resetPasswordExpires   = expires;
+    await user.save();
+
+    const resetLink = `${CLIENT_URL}/reset.html?token=${tokenPlain}&email=${encodeURIComponent(email)}`;
+
+    await transporter.sendMail({
+      from: process.env.MAIL_FROM || '"OrumGS" <no-reply@tu-dominio.com>',
+      to: email,
+      subject: "Restablecer tu contraseña",
+      html: `
+        <p>Hola,</p>
+        <p>Solicitaste restablecer tu contraseña. Este enlace expira en 15 minutos:</p>
+        <p><a href="${resetLink}">${resetLink}</a></p>
+        <p>Si no fuiste tú, ignora este mensaje.</p>
+      `,
+    });
+
+    return res.json({ message: genericMsg });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: "Error enviando el enlace de recuperación" });
+  }
+});
+
+// 2) Aplicar nueva contraseña
+app.post("/auth/reset-password", async (req, res) => {
+  const { email, token, newPassword } = req.body || {};
+  if (!email || !token || !newPassword) {
+    return res.status(400).json({ message: "Datos incompletos" });
+  }
+  try {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({
+      email,
+      resetPasswordTokenHash: tokenHash,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select("_id password resetPasswordTokenHash resetPasswordExpires");
+
+    if (!user) return res.status(400).json({ message: "Token inválido o expirado" });
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres." });
+    }
+
+    const hash = bcrypt.hashSync(newPassword, 10);
+    user.password = hash;
+    user.resetPasswordTokenHash = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    return res.json({ message: "Contraseña actualizada. Ya puedes iniciar sesión." });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: "Error al restablecer la contraseña" });
+  }
+});
+
+// ===== Servidor =====
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
