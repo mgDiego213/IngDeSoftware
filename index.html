@@ -1,811 +1,235 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OrumGS</title>
-    <!-- Usar la versión de producción de Vue -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-
-    
-    <!-- Silenciar advertencias de consola de TradingView -->
-    <script>
-    
-        window.console = (function(originalConsole) {
-            return {
-                log: function(text) {
-                    if (!String(text).includes('TradingView') && 
-                        !String(text).includes('schema') &&
-                        !String(text).includes('state with a data type')) {
-                        originalConsole.log.apply(originalConsole, arguments);
-                    }
-                },
-                warn: function(text) {
-                    if (!String(text).includes('TradingView') && 
-                        !String(text).includes('schema') &&
-                        !String(text).includes('state with a data type')) {
-                        originalConsole.warn.apply(originalConsole, arguments);
-                    }
-                },  
-                error: function(text) {
-                    if (!String(text).includes('TradingView') && 
-                        !String(text).includes('schema') &&
-                        !String(text).includes('state with a data type')) {
-                        originalConsole.error.apply(originalConsole, arguments);
-                    }
-                },
-                info: originalConsole.info,
-                clear: originalConsole.clear,
-                debug: originalConsole.debug,
-                table: originalConsole.table,
-                assert: originalConsole.assert,
-                count: originalConsole.count,
-                group: originalConsole.group,
-                groupEnd: originalConsole.groupEnd,
-                time: originalConsole.time,
-                timeEnd: originalConsole.timeEnd,
-                trace: originalConsole.trace
-            };
-        })(window.console);
-    </script>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OrumGS</title>
+  <!-- Vue 3 (prod) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- Tailwind -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Tus estilos (aquí está el estilo de la alerta personalizada) -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100">
-    <div id="app">
-        <nav class="bg-white shadow-md">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <div class="flex-shrink-0 flex items-center">
-                            <h1 class="text-2xl font-bold text-blue-800">OrumGS</h1>
-                        </div>
-                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                            <a href="Inicio.html" v-if="isLoggedIn && (userRole === 'Dueño' || userRole === 'Gerente' || userRole === 'Trabajador' || userRole === 'Usuario')" class="text-gray-900 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Inicio</a>
-                            <a href="Mercados.html" v-if="isLoggedIn && (userRole === 'Dueño' || userRole === 'Gerente' || userRole === 'Trabajador' || userRole === 'Usuario')" class="text-gray-900 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Mercados</a>
-                            <a href="Administracion.html" v-if="isLoggedIn && (userRole === 'Dueño' || userRole === 'Gerente')" class="text-gray-900 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Administración</a>
-                        </div>
-                    </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                        <button v-if="!isLoggedIn" @click="showLoginModal = true" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-300">
-                            Iniciar Sesión
-                        </button>
-                        <div v-else class="flex items-center space-x-4">
-                            <span class="text-gray-700 font-semibold">{{ userRole }}</span>
-                            <button @click="logout" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-300">
-                                Cerrar Sesión
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Modal de Login -->
-        <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white p-8 rounded-lg shadow-xl w-96">
-                <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Iniciar Sesión</h2>
-                <form @submit.prevent="login">
-                    <input 
-                        type="email" 
-                        v-model="loginEmail" 
-                        placeholder="Correo electrónico" 
-                        class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                    >
-                    <input 
-                        type="password" 
-                        v-model="loginPassword" 
-                        placeholder="Contraseña" 
-                        class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                    >
-                    <button 
-                        type="submit" 
-                        class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300"
-                    >
-                        Iniciar Sesión
-                    </button>
-                    <p class="text-center mt-4">
-                        <a href="#" @click="showRegistroModal = true; showLoginModal = false" class="text-blue-600 hover:underline">
-                            ¿No tienes cuenta? Regístrate
-                        </a>
-                    </p>
-                    <!-- NUEVO: enlace para recuperación -->
-                    <p class="text-center mt-2">
-                        <a href="#" @click="showForgotModal = true; showLoginModal = false" class="text-blue-600 hover:underline">
-                            ¿Olvidaste tu contraseña?
-                        </a>
-                    </p>
-                    <button 
-                        type="button" 
-                        @click="showLoginModal = false" 
-                        class="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
-                    >
-                        ✕
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Modal: Olvidé mi contraseña (NUEVO) -->
-        <div v-if="showForgotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
-            <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Recuperar contraseña</h2>
-            <form @submit.prevent="requestPasswordReset">
-              <input
-                type="email"
-                v-model="forgotEmail"
-                placeholder="Tu correo"
-                class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-              <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
-                Enviarme enlace
-              </button>
-            </form>
-            <button type="button" @click="showForgotModal = false; showLoginModal = true"
-                    class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
+<div id="app">
+  <!-- Navbar mínima -->
+  <nav class="bg-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex">
+          <div class="flex-shrink-0 flex items-center">
+            <h1 class="text-2xl font-bold text-blue-800">OrumGS</h1>
           </div>
         </div>
-
-        <!-- Modal de Registro -->
-        <div v-if="showRegistroModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white p-8 rounded-lg shadow-xl w-96">
-                <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Registro</h2>
-                <form @submit.prevent="register">
-                    <input 
-                        type="text" 
-                        v-model="registerName" 
-                        placeholder="Nombre" 
-                        class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                    >
-                    <input 
-                        type="email" 
-                        v-model="registerEmail" 
-                        placeholder="Correo electrónico" 
-                        class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                    >
-                    <input 
-                        type="password" 
-                        v-model="registerPassword" 
-                        placeholder="Contraseña" 
-                        class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                    >
-                    <button 
-                        type="submit" 
-                        class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300"
-                    >
-                        Registrarse
-                    </button>
-                    <p class="text-center mt-4">
-                        <a href="#" @click="showRegistroModal = false; showLoginModal = true" class="text-blue-600 hover:underline">
-                            ¿Ya tienes cuenta? Inicia sesión
-                        </a>
-                    </p>
-                    <button 
-                        type="button" 
-                        @click="showRegistroModal = false" 
-                        class="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
-                    >
-                        ✕
-                    </button>
-                </form>
-            </div>
+        <div class="hidden sm:ml-6 sm:flex sm:items-center">
+          <button @click="showLoginModal = true"
+                  class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-300">
+            Iniciar Sesión
+          </button>
         </div>
-
-        <!-- Contenido principal para usuarios no autenticados -->
-        <div v-if="!isLoggedIn" class="grid md:grid-cols-2 gap-8 mt-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div>
-                <h2 class="text-4xl font-bold text-blue-900 mb-6">Bienvenido a OrumGS</h2>
-                <p class="text-xl text-gray-700 mb-6">
-                    Explora los mercados globales, gestiona tus inversiones y toma decisiones inteligentes con nuestra plataforma de trading.
-                </p>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Mercados en Vivo</h3>
-                        <p>Seguimiento en tiempo real de criptomonedas y divisas.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Análisis</h3>
-                        <p>Herramientas avanzadas de análisis de mercado.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="gradient-bg rounded-lg p-8 text-white">
-                <h3 class="text-2xl font-bold mb-6">Nuestras Principales Criptomonedas</h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span><h3 class="text-xl font-semibold text-white-800 mb-4">Bitcoin (BTC)</h3></span>
-                        <span><div class="price-container" :class="{'price-up': priceDirections.bitcoin === 'up', 'price-down': priceDirections.bitcoin === 'down'}">
-                            <p class="price-value">{{ prices.bitcoin }}</p>
-                            <span v-if="priceDirections.bitcoin === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.bitcoin === 'down'" class="price-indicator">↓</span>
-                        </div></span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span><h3 class="text-xl font-semibold text-white-800 mb-4">Ethereum (ETH)</h3></span>
-                        <span><div class="price-container" :class="{'price-up': priceDirections.ethereum === 'up', 'price-down': priceDirections.ethereum === 'down'}">
-                            <p class="price-value">{{ prices.ethereum }}</p>
-                            <span v-if="priceDirections.ethereum === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.ethereum === 'down'" class="price-indicator">↓</span>
-                        </div></span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span><h3 class="text-xl font-semibold text-white-800 mb-4">Dogecoin (DOGE)</h3></span>
-                        <span><div class="price-container" :class="{'price-up': priceDirections.dogecoin === 'up', 'price-down': priceDirections.dogecoin === 'down'}">
-                            <p class="price-value">{{ prices.dogecoin }}</p>
-                            <span v-if="priceDirections.dogecoin === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.dogecoin === 'down'" class="price-indicator">↓</span>
-                        </div></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Dashboard para usuarios logueados -->
-        <div v-if="isLoggedIn" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Navegación de Pestañas -->
-            <div class="border-b border-gray-200 mb-8">
-                <nav class="-mb-px flex space-x-8">
-                    <button 
-                        @click="activeTab = 'dashboard'" 
-                        :class="[activeTab === 'dashboard' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm']"
-                    >
-                        Dashboard
-                    </button>
-                    <button 
-                        v-if="userRole === 'Dueño' || userRole === 'Gerente'"
-                        @click="activeTab = 'users'; loadUsers()"
-                        :class="[activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm']"
-                    >
-                        Gestión de Usuarios
-                    </button>
-                </nav>
-            </div>
-
-            <!-- Dashboard -->
-            <div v-if="activeTab === 'dashboard'">
-                <h2 class="text-3xl font-bold text-blue-900 mb-6">Dashboard de Trading</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Bitcoin (BTC)</h3>
-                        <div class="price-container" :class="{'price-up': priceDirections.bitcoin === 'up', 'price-down': priceDirections.bitcoin === 'down'}">
-                            <p class="price-value">{{ prices.bitcoin }}</p>
-                            <span v-if="priceDirections.bitcoin === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.bitcoin === 'down'" class="price-indicator">↓</span>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Ethereum (ETH)</h3>
-                        <div class="price-container" :class="{'price-up': priceDirections.ethereum === 'up', 'price-down': priceDirections.ethereum === 'down'}">
-                            <p class="price-value">{{ prices.ethereum }}</p>
-                            <span v-if="priceDirections.ethereum === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.ethereum === 'down'" class="price-indicator">↓</span>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Dogecoin (DOGE)</h3>
-                        <div class="price-container" :class="{'price-up': priceDirections.dogecoin === 'up', 'price-down': priceDirections.dogecoin === 'down'}">
-                            <p class="price-value">{{ prices.dogecoin }}</p>
-                            <span v-if="priceDirections.dogecoin === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.dogecoin === 'down'" class="price-indicator">↓</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Última actualización -->
-                <div v-if="lastUpdate" class="text-right text-sm text-gray-500 mb-4">
-                    Última actualización: {{ lastUpdate.toLocaleTimeString() }}
-                </div>
-                
-                <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-                    <h3 class="text-2xl font-semibold text-blue-800 mb-4">Gráficos en Tiempo Real</h3>
-                    <div id="chart_bitcoin" class="chart-container"></div>
-                    <div id="chart_ethereum" class="chart-container"></div>
-                    <div id="chart_dogecoin" class="chart-container"></div>
-                </div>
-            </div>
-
-            <!-- Gestión de Usuarios -->
-            <div v-if="activeTab === 'users' && (userRole === 'Dueño' || userRole === 'Gerente')">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-bold text-blue-900">Gestión de Usuarios</h2>
-                </div>
-                
-                <div class="bg-white overflow-hidden shadow-md rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap">{{ user.nombre }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ user.email }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
-                                          :class="{
-                                            'bg-green-100 text-green-800': user.rol === 'Dueño',
-                                            'bg-blue-100 text-blue-800': user.rol === 'Gerente',
-                                            'bg-yellow-100 text-yellow-800': user.rol === 'Trabajador',
-                                            'bg-gray-100 text-gray-800': user.rol === 'Usuario'
-                                          }">
-                                        {{ user.rol }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button 
-                                        v-if="(userRole === 'Dueño' || userRole === 'Gerente') && user.id !== 1" 
-                                        @click="changeUserRole(user.id, user.rol)"
-                                        class="text-indigo-600 hover:text-indigo-900 mr-4"
-                                    >
-                                        Cambiar Rol
-                                    </button>
-                                    <button 
-                                        v-if="userRole === 'Dueño' && user.id !== parseInt(userId)" 
-                                        @click="deleteUser(user.id)"
-                                        class="text-red-600 hover:text-red-900"
-                                    >
-                                        Eliminar
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Alerta personalizada -->
-        <div v-if="showCustomAlert">
-            <div class="alert-backdrop"></div>
-            <div class="custom-alert">
-                <div class="alert-title">Esta página dice</div>
-                <div class="alert-message">{{ customAlertMessage }}</div>
-                <button @click="showCustomAlert = false" class="alert-button">
-                    Aceptar
-                </button>
-            </div>
-        </div>
+      </div>
     </div>
+  </nav>
 
-    <script>
-        // Silenciar errores de TradingView
-        window.addEventListener('error', function(event) {
-            if (event.message && (
-                event.message.includes('TradingView') || 
-                event.message.includes('schema') ||
-                event.message.includes('state with a data type'))) {
-                event.preventDefault();
-            }
-        });
+  <!-- Sección Landing / Hero -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <h2 class="text-4xl font-bold text-blue-900 mb-4">Bienvenido a OrumGS</h2>
+    <p class="text-xl text-gray-700 mb-6">
+      Explora los mercados globales, gestiona tus inversiones y toma decisiones inteligentes con nuestra plataforma.
+    </p>
+    <button @click="showLoginModal = true"
+            class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700">
+      Comenzar
+    </button>
+  </section>
 
-        const API_URL = window.location.origin;
-        const CRYPTOS = ["bitcoin", "ethereum", "dogecoin"];
-        const TRADINGVIEW_SYMBOLS = {
-            bitcoin: "BINANCE:BTCUSDT",
-            ethereum: "BINANCE:ETHUSDT",
-            dogecoin: "BINANCE:DOGEUSDT"
-        };
+  <!-- Modal: Login -->
+  <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
+      <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Iniciar Sesión</h2>
+      <form @submit.prevent="login">
+        <input type="email" v-model="loginEmail" placeholder="Correo electrónico"
+               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <input type="password" v-model="loginPassword" placeholder="Contraseña"
+               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <button type="submit"
+                class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
+          Iniciar Sesión
+        </button>
+      </form>
+      <p class="text-center mt-4">
+        <a href="#" @click="showRegistroModal = true; showLoginModal = false" class="text-blue-600 hover:underline">
+          ¿No tienes cuenta? Regístrate
+        </a>
+      </p>
+      <p class="text-center mt-2">
+        <a href="#" @click="showForgotModal = true; showLoginModal = false" class="text-blue-600 hover:underline">
+          ¿Olvidaste tu contraseña?
+        </a>
+      </p>
+      <button type="button" @click="showLoginModal = false"
+              class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
+    </div>
+  </div>
 
-        const app = Vue.createApp({
-            data() {
-                return {
-                    showLoginModal: false,
-                    showRegistroModal: false,
-                    loginEmail: '',
-                    loginPassword: '',
-                    registerName: '',
-                    registerEmail: '',
-                    registerPassword: '',
-                    isLoggedIn: false,
-                    prices: {
-                        bitcoin: "Cargando...",
-                        ethereum: "Cargando...",
-                        dogecoin: "Cargando..."
-                    },
-                    previousPrices: {
-                        bitcoin: null,
-                        ethereum: null,
-                        dogecoin: null
-                    },
-                    priceDirections: {
-                        bitcoin: null,
-                        ethereum: null,
-                        dogecoin: null
-                    },
-                    userRole: null,
-                    userId: null,
-                    activeTab: 'dashboard',
-                    users: [],
-                    showCustomAlert: false,
-                    customAlertMessage: '',
-                    updateInterval: null,
-                    lastUpdate: null
-                }
-            },
-            methods: {
-                // Método para mostrar alerta personalizada
-                showAlert(message) {
-                    this.customAlertMessage = message;
-                    this.showCustomAlert = true;
-                },
+  <!-- Modal: Olvidé mi contraseña -->
+  <div v-if="showForgotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
+      <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Recuperar contraseña</h2>
+      <form @submit.prevent="requestPasswordReset">
+        <input type="email" v-model="forgotEmail" placeholder="Tu correo"
+               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <button type="submit"
+                class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
+          Enviarme enlace
+        </button>
+      </form>
+      <button type="button" @click="showForgotModal = false; showLoginModal = true"
+              class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
+    </div>
+  </div>
 
-                
-                async requestPasswordReset() {
-                    try {
-                        const res = await fetch(`${API_URL}/auth/request-password-reset`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: this.forgotEmail })
-                        });
-                        const d = await res.json();
-                        this.showAlert(d.message || 'Si el correo existe, te enviaremos un enlace para restablecer.');
-                        this.forgotEmail = '';
-                        this.showForgotModal = false;
-                        this.showLoginModal = true;
-                    } catch (e) {
-                        this.showAlert('Error de conexión. Intenta más tarde.');
-                    }
-                },
-                async checkLoginStatus() {
-                    const token = localStorage.getItem("token");
-                    this.userRole = localStorage.getItem("rol");
-                    this.userId = localStorage.getItem("userId");
-                    
-                    console.log("Verificando sesión... Token encontrado:", token);
-                    if (this.userRole) console.log("Rol de usuario:", this.userRole);
+  <!-- Modal: Registro -->
+  <div v-if="showRegistroModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
+      <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Registro</h2>
+      <form @submit.prevent="register">
+        <input type="text" v-model="registerName" placeholder="Nombre"
+               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <input type="email" v-model="registerEmail" placeholder="Correo electrónico"
+               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <input type="password" v-model="registerPassword" placeholder="Contraseña"
+               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+        <button type="submit"
+                class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
+          Registrarse
+        </button>
+      </form>
+      <p class="text-center mt-4">
+        <a href="#" @click="showRegistroModal = false; showLoginModal = true" class="text-blue-600 hover:underline">
+          ¿Ya tienes cuenta? Inicia sesión
+        </a>
+      </p>
+      <button type="button" @click="showRegistroModal = false"
+              class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
+    </div>
+  </div>
 
-                    if (!token) {
-                        console.warn("No hay token, usuario no autenticado.");
-                        this.isLoggedIn = false;
-                        return;
-                    }
+  <!-- Alerta personalizada (usa estilos de style.css) -->
+  <div v-if="showCustomAlert">
+    <div class="alert-backdrop"></div>
+    <div class="custom-alert">
+      <div class="alert-title">Esta página dice</div>
+      <div class="alert-message">{{ customAlertMessage }}</div>
+      <button @click="showCustomAlert = false" class="alert-button">Aceptar</button>
+    </div>
+  </div>
+</div>
 
-                    try {
-                        const response = await fetch(`${API_URL}/validate-token`, {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${token}`,
-                                "Content-Type": "application/json"
-                            }
-                        });
+<script>
+  const API_URL = window.location.origin;
 
-                        if (response.ok) {
-                            console.log("Token válido. Usuario autenticado.");
-                            this.isLoggedIn = true;
+  const app = Vue.createApp({
+    data() {
+      return {
+        // Modales
+        showLoginModal: false,
+        showRegistroModal: false,
+        showForgotModal: false,
+        // Login
+        loginEmail: '',
+        loginPassword: '',
+        // Registro
+        registerName: '',
+        registerEmail: '',
+        registerPassword: '',
+        // Recuperar pass
+        forgotEmail: '',
+        // Alerta
+        showCustomAlert: false,
+        customAlertMessage: ''
+      }
+    },
+    methods: {
+      showAlert(msg) {
+        this.customAlertMessage = msg;
+        this.showCustomAlert = true;
+      },
 
-                            // Obtener los precios iniciales
-                            this.fetchCryptoPrices();
-                            
-                            // Iniciar la actualización automática de precios
-                            this.startPriceUpdates();
-                            
-                            setTimeout(() => {
-                                loadTradingViewCharts();
-                            }, 1000);
-                            
-                            if (this.userRole === 'Dueño' || this.userRole === 'Gerente') {
-                                this.loadUsers();
-                            }
-                        } else {
-                            console.warn("Token inválido o expirado. Cerrando sesión...");
-                            localStorage.removeItem("token");
-                            localStorage.removeItem("rol");
-                            localStorage.removeItem("userId");
-                            this.isLoggedIn = false;
-                        }
-                    } catch (error) {
-                        console.error("Error validando el token:", error);
-                        this.isLoggedIn = false;
-                    }
-                },
-
-                startPriceUpdates() {
-                    if (this.updateInterval) clearInterval(this.updateInterval);
-                    this.updateInterval = setInterval(() => {
-                        this.fetchCryptoPrices();
-                    }, 20000); // 20 segundos
-                },
-
-                stopPriceUpdates() {
-                    if (this.updateInterval) {
-                        clearInterval(this.updateInterval);
-                        this.updateInterval = null;
-                    }
-                },
-
-                async fetchCryptoPrices() {
-                    if (!this.isLoggedIn) return;
-
-                    try {
-                        const response = await fetch(`${API_URL}/crypto-prices`);
-                        const data = await response.json();
-
-                        if (data.message) {
-                            console.warn("CoinGecko respondió con un mensaje:", data.message);
-                            return;
-                        }
-                        
-                        this.previousPrices = {
-                            bitcoin: this.getNumericPrice(this.prices.bitcoin),
-                            ethereum: this.getNumericPrice(this.prices.ethereum),
-                            dogecoin: this.getNumericPrice(this.prices.dogecoin)
-                        };
-
-                        const formattedBitcoin = data.bitcoin.usd.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD',
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                        });
-                        const formattedEthereum = data.ethereum.usd.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD',
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                        });
-                        const formattedDogecoin = data.dogecoin.usd.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD',
-                            minimumFractionDigits: 6, 
-                            maximumFractionDigits: 6 
-                        });
-
-                        this.prices.bitcoin = formattedBitcoin;
-                        this.prices.ethereum = formattedEthereum;
-                        this.prices.dogecoin = formattedDogecoin;
-
-                        if (this.previousPrices.bitcoin !== null) {
-                            this.priceDirections.bitcoin = 
-                                data.bitcoin.usd > this.previousPrices.bitcoin ? 'up' : 
-                                data.bitcoin.usd < this.previousPrices.bitcoin ? 'down' : null;
-
-                            this.priceDirections.ethereum = 
-                                data.ethereum.usd > this.previousPrices.ethereum ? 'up' : 
-                                data.ethereum.usd < this.previousPrices.ethereum ? 'down' : null;
-
-                            this.priceDirections.dogecoin = 
-                                data.dogecoin.usd > this.previousPrices.dogecoin ? 'up' : 
-                                data.dogecoin.usd < this.previousPrices.dogecoin ? 'down' : null;
-                        }
-
-                        this.lastUpdate = new Date();
-
-                        setTimeout(() => {
-                            this.priceDirections = { bitcoin: null, ethereum: null, dogecoin: null };
-                        }, 2000);
-                    } catch (error) {
-                        console.error("Error obteniendo precios:", error);
-                    }
-                },
-
-                getNumericPrice(formattedPrice) {
-                    if (formattedPrice === "Cargando...") return null;
-                    return parseFloat(formattedPrice.replace(/[$,]/g, ''));
-                },
-
-                login() {
-                    console.log("Intentando iniciar sesión con:", this.loginEmail);
-                    fetch(`${API_URL}/login`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            email: this.loginEmail, 
-                            password: this.loginPassword 
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.token) {
-                            localStorage.setItem("token", data.token);
-                            localStorage.setItem("rol", data.rol);
-                            localStorage.setItem("userId", data.userId);
-
-                            this.isLoggedIn = true;
-                            this.userRole = data.rol;
-                            this.userId = data.userId;
-                            this.showLoginModal = false;
-
-                            this.fetchCryptoPrices();
-                            this.startPriceUpdates();
-
-                            setTimeout(() => {
-                                loadTradingViewCharts();
-                            }, 1000);
-
-                            console.log("Inicio de sesión exitoso");
-                            window.location.href = "Inicio.html";
-                        } else {
-                            this.showAlert("Credenciales incorrectas");
-                            console.warn("Credenciales incorrectas");
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error en login:", error);
-                        this.showAlert("Error de conexión. Intente nuevamente.");
-                    });
-                },
-
-                register() {
-                    fetch(`${API_URL}/register`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            nombre: this.registerName, 
-                            email: this.registerEmail, 
-                            password: this.registerPassword 
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        this.showAlert(data.message);
-                        if (data.id) {
-                            this.loginEmail = this.registerEmail;
-                            this.loginPassword = this.registerPassword;
-                            this.showRegistroModal = false;
-                            this.login();
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error en registro:", error);
-                        this.showAlert("Error de conexión. Intente nuevamente.");
-                    });
-                },
-
-                logout() {
-                    console.log("Cerrando sesión...");
-                    if (typeof this.stopPriceUpdates === "function") this.stopPriceUpdates();
-
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("rol");
-                    localStorage.removeItem("userId");
-
-                    this.isLoggedIn = false;
-                    this.userRole = null;
-                    this.userId = null;
-                    this.activeTab = 'dashboard';
-
-                    window.location.replace("index.html");
-                },
-
-                loadUsers() {
-                    const token = localStorage.getItem("token");
-                    console.log("Cargando usuarios...");
-
-                    fetch(`${API_URL}/usuarios`, {
-                        method: "GET",
-                        headers: { "Authorization": `Bearer ${token}` }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        this.users = data;
-
-                        setTimeout(() => {
-                            loadTradingViewCharts();
-                        }, 1000);
-                    })
-                    .catch(error => {
-                        console.error("Error al cargar usuarios:", error);
-                        this.showAlert("Error al cargar la lista de usuarios");
-                    });
-                },
-
-                changeUserRole(userId, currentRole) {
-                    const token = localStorage.getItem("token");
-                    let newRole = prompt(
-                        `Ingrese el nuevo rol para este usuario (actual: ${currentRole})\nOpciones: Dueño, Gerente, Trabajador, Usuario:`
-                    );
-
-                    if (!newRole || !["Dueño", "Gerente", "Trabajador", "Usuario"].includes(newRole)) {
-                        this.showAlert("Rol inválido.");
-                        return;
-                    }
-
-                    fetch(`${API_URL}/usuarios/${userId}/rol`, {
-                        method: "PUT",
-                        headers: { 
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ rol: newRole })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        this.showAlert(data.message);
-                        this.loadUsers();
-                    })
-                    .catch(error => {
-                        console.error("Error al cambiar rol:", error);
-                        this.showAlert("Error al cambiar el rol");
-                    });
-                },
-            
-                deleteUser(userId) {
-                    const token = localStorage.getItem("token");
-
-                    if (!confirm("¿Estás seguro de eliminar este usuario?")) return;
-
-                    fetch(`${API_URL}/usuarios/${userId}`, {
-                        method: "DELETE",
-                        headers: { "Authorization": `Bearer ${token}` }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        this.showAlert(data.message);
-                        this.loadUsers();
-                    })
-                    .catch(error => {
-                        console.error("Error al eliminar usuario:", error);
-                        this.showAlert("Error al eliminar usuario");
-                    });
-                }
-            },
-            mounted() {
-                this.checkLoginStatus();
-            },
-            beforeUnmount() {
-                this.stopPriceUpdates();
-            }
-        }).mount('#app');
-
-        function loadTradingViewCharts() {
-            setTimeout(() => {
-                CRYPTOS.forEach(crypto => {
-                    const chartDiv = document.getElementById(`chart_${crypto}`);
-                    if (chartDiv) {
-                        try {
-                            chartDiv.innerHTML = '';
-                            new TradingView.widget({
-                                "container_id": `chart_${crypto}`,
-                                "symbol": TRADINGVIEW_SYMBOLS[crypto],
-                                "interval": "1",
-                                "timezone": "Etc/UTC",
-                                "theme": "dark",
-                                "style": "1",
-                                "locale": "es",
-                                "toolbar_bg": "#f1f3f6",
-                                "enable_publishing": false,
-                                "withdateranges": true,
-                                "hide_side_toolbar": false,
-                                "allow_symbol_change": true,
-                                "save_image": false,
-                                "width": "100%",
-                                "height": 400,
-                                "autosize": false,
-                                "hide_volume": false,
-                                "studies": [],
-                                "show_popup_button": true,
-                                "popup_width": "1000",
-                                "popup_height": "650"
-                            });
-                        } catch (error) {
-                            chartDiv.innerHTML = `
-                                <div style="display: flex; justify-content: center; align-items: center; height: 400px; background-color: #1E2029; color: white; border-radius: 8px;">
-                                    <div style="text-align: center; padding: 20px;">
-                                        <h3>Error al cargar el gráfico</h3>
-                                        <p>Intente recargar la página</p>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    }
-                });
-            }, 500);
+      async requestPasswordReset() {
+        try {
+          const r = await fetch(`${API_URL}/auth/request-password-reset`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ email: this.forgotEmail })
+          });
+          const d = await r.json();
+          this.showAlert(d.message || 'Si el correo existe, te enviaremos un enlace para restablecer.');
+          this.forgotEmail = '';
+          this.showForgotModal = false;
+          this.showLoginModal = true;
+        } catch {
+          this.showAlert('Error de conexión. Intenta más tarde.');
         }
-    </script>
+      },
+
+      login() {
+        fetch(`${API_URL}/login`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ email: this.loginEmail, password: this.loginPassword })
+        })
+        .then(r => r.json())
+        .then(d => {
+          if (d.token) {
+            localStorage.setItem("token", d.token);
+            localStorage.setItem("rol", d.rol);
+            localStorage.setItem("userId", d.userId);
+            // Redirige al área privada
+            window.location.href = "Inicio.html";
+          } else {
+            this.showAlert(d.message || "Credenciales incorrectas");
+          }
+        })
+        .catch(() => this.showAlert("Error de conexión. Intente nuevamente."));
+      },
+
+      register() {
+        fetch(`${API_URL}/register`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            nombre: this.registerName,
+            email: this.registerEmail,
+            password: this.registerPassword
+          })
+        })
+        .then(r => r.json())
+        .then(d => {
+          this.showAlert(d.message);
+          if (d.id) {
+            this.loginEmail = this.registerEmail;
+            this.loginPassword = this.registerPassword;
+            this.showRegistroModal = false;
+            this.login();
+          }
+        })
+        .catch(() => this.showAlert("Error de conexión. Intente nuevamente."));
+      }
+    },
+    mounted() {
+      // Si ya hay sesión válida, redirige a Inicio.html
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      fetch(`${API_URL}/validate-token`, {
+        method:'POST',
+        headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }
+      })
+      .then(r => { if (r.ok) window.location.replace("Inicio.html"); })
+      .catch(() => {/* ignorar */});
+    }
+  }).mount('#app');
+</script>
 </body>
 </html>
-
-
-
