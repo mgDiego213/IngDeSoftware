@@ -14,224 +14,269 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-// ===== MongoDB =====
+// ===== DB =====
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/orumgs";
+mongoose.set("strictQuery", true);
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("Conexión exitosa a MongoDB Atlas"))
-  .catch((err) => console.error("Error al conectar a MongoDB:", err));
+  .connect(MONGO_URI)
+  .then(() => console.log("MongoDB conectado"))
+  .catch((e) => {
+    console.error("Error conectando a MongoDB:", e.message);
+  });
 
-// ===== Modelo de Usuario =====
+// ===== Modelo =====
 const userSchema = new mongoose.Schema(
   {
-    nombre:  { type: String, required: true },
-    email:   { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password:{ type: String, required: true },
-    rol:     { type: String, default: "Usuario" },
+    nombre: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+    rol: { type: String, default: "Usuario" },
 
     // Recuperación de contraseña
     resetPasswordTokenHash: { type: String, default: null },
-    resetPasswordExpires:   { type: Date,   default: null },
+    resetPasswordExpires: { type: Date, default: null },
   },
   { timestamps: true }
 );
-userSchema.index({ email: 1 }, { unique: true });
+// Nota: NO declaramos schema.index({ email: 1 }) para evitar el warning de índice duplicado
 const User = mongoose.model("User", userSchema);
 
-// ===== Middleware de Auth =====
+// ===== Util =====
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+function signToken(user) {
+  return jwt.sign(
+    { id: user._id.toString(), rol: user.rol, email: user.email },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
+
+// Middleware de auth
 function verifyToken(req, res, next) {
   try {
-    const auth = req.headers.authorization || "";
-    const token = auth.startsWith("Bearer ") ? auth.split(" ")[1] : auth;
+    const auth = req.headers["authorization"] || req.headers["Authorization"] || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
     if (!token) return res.status(401).json({ message: "No autorizado" });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, rol, iat, exp }
-    next();
-  } catch {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // { id, rol, email }
+    return next();
+  } catch (e) {
     return res.status(401).json({ message: "Token inválido o expirado" });
   }
 }
 
-// ===== Estáticos (sirve archivos desde la raíz) =====
+// ===== Estáticos =====
 const ROOT_DIR = __dirname;
 app.use(express.static(ROOT_DIR));
 app.get("/", (_req, res) => res.sendFile(path.join(ROOT_DIR, "index.html")));
-app.get("/Inicio.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Inicio.html")));
-app.get("/Mercados.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Mercados.html")));
-app.get("/Administracion.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "Administracion.html")));
-app.get("/reset.html", (_req, res) => res.sendFile(path.join(ROOT_DIR, "reset.html"))); // <- NUEVA página
-
-// Healthcheck para Render
-app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
-
-// ===== Nodemailer (Brevo por ENV) =====
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,                 // p.ej. smtp-relay.brevo.com
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: process.env.SMTP_SECURE === "true",  // true si usas 465
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+["/Inicio.html", "/Mercados.html", "/Administracion.html", "/reset.html"].forEach((route) => {
+  app.get(route, (_req, res) => res.sendFile(path.join(ROOT_DIR, route.replace("/", ""))));
 });
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 
-// ===== Rutas existentes =====
+// ===== Auth =====
 app.post("/register", async (req, res) => {
-  const { nombre, email, password } = req.body;
-  if (!nombre || !email || !password) {
-    return res.status(400).json({ message: "Todos los campos son obligatorios" });
-  }
   try {
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: "El usuario ya existe" });
-    const hashed = bcrypt.hashSync(password, 10);
-    const nuevo = await User.create({ nombre, email, password: hashed, rol: "Usuario" });
-    return res.status(201).json({ message: "Usuario registrado correctamente", id: nuevo._id });
-  } catch (err) {
-    if (err?.code === 11000) return res.status(400).json({ message: "El usuario ya existe" });
-    console.error("Error al registrar usuario:", err);
-    return res.status(500).json({ message: "Error al registrar usuario" });
+    const { nombre, email, password } = req.body;
+    if (!nombre || !email || !password) {
+      return res.status(400).json({ message: "Faltan campos" });
+    }
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(400).json({ message: "El correo ya está registrado" });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({ nombre, email, password: hash, rol: "Usuario" });
+
+    return res.json({ message: "Usuario registrado", id: user._id.toString() });
+  } catch (e) {
+    console.error("Error en register:", e);
+    return res.status(500).json({ message: "Error al registrar" });
   }
 });
 
 app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ message: "Faltan datos en la solicitud" });
   try {
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Usuario no encontrado" });
-    const ok = bcrypt.compareSync(password, user.password);
-    if (!ok) return res.status(400).json({ message: "Contraseña incorrecta" });
-    const token = jwt.sign({ id: user._id, rol: user.rol }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    return res.json({ token, rol: user.rol, userId: user._id });
-  } catch (err) {
-    console.error("Error en login:", err);
-    return res.status(500).json({ message: "Error en el servidor" });
-  }
-});
+    if (!user) return res.status(401).json({ message: "Credenciales incorrectas" });
 
-app.get("/usuarios", verifyToken, async (_req, res) => {
-  try {
-    const users = await User.find({}, "nombre email rol");
-    return res.json(users);
-  } catch (err) {
-    console.error("Error al obtener usuarios:", err);
-    return res.status(500).json({ message: "Error al obtener usuarios" });
-  }
-});
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ message: "Credenciales incorrectas" });
 
-app.put("/usuarios/:id/rol", verifyToken, async (req, res) => {
-  const { id } = req.params;
-  const { rol } = req.body;
-  try {
-    await User.findByIdAndUpdate(id, { rol });
-    return res.json({ message: "Rol actualizado correctamente" });
-  } catch (err) {
-    console.error("Error al cambiar rol:", err);
-    return res.status(500).json({ message: "Error al cambiar rol" });
-  }
-});
-
-app.delete("/usuarios/:id", verifyToken, async (req, res) => {
-  const { id } = req.params;
-  try {
-    await User.findByIdAndDelete(id);
-    return res.json({ message: "Usuario eliminado correctamente" });
-  } catch (err) {
-    console.error("Error al eliminar usuario:", err);
-    return res.status(500).json({ message: "Error al eliminar usuario" });
-  }
-});
-
-app.get("/crypto-prices", async (_req, res) => {
-  try {
-    const response = await axios.get("https://api.coingecko.com/api/v3/simple/price", {
-      params: { ids: "bitcoin,ethereum,dogecoin", vs_currencies: "usd" },
-    });
-    return res.json(response.data);
-  } catch (error) {
-    console.error("Error obteniendo precios:", error);
-    return res.status(500).json({ message: "Error en el servidor al obtener precios" });
+    const token = signToken(user);
+    return res.json({ token, rol: user.rol, userId: user._id.toString() });
+  } catch (e) {
+    console.error("Error en login:", e);
+    return res.status(500).json({ message: "Error en login" });
   }
 });
 
 app.post("/validate-token", (req, res) => {
-  const auth = req.headers.authorization || "";
-  const token = auth.startsWith("Bearer ") ? auth.split(" ")[1] : auth;
-  if (!token) return res.status(401).json({ message: "No autorizado" });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).json({ message: "Token inválido o expirado" });
-    return res.status(200).json({ message: "Token válido", user: decoded });
-  });
+  try {
+    const auth = req.headers["authorization"] || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
+    if (!token) return res.status(401).json({ message: "No autorizado" });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return res.json({ ok: true, user: decoded });
+  } catch (e) {
+    return res.status(401).json({ message: "Token inválido o expirado" });
+  }
 });
 
-// ===== Recuperación de contraseña =====
-
-// 1) Solicitar link de reset (respuesta genérica para no filtrar emails)
-app.post("/auth/request-password-reset", async (req, res) => {
-  const { email } = req.body || {};
-  if (!email) return res.status(400).json({ message: "Email requerido" });
-
-  const genericMsg = "Si el correo existe, te enviaremos un enlace para restablecer.";
+// ===== Datos de mercado (CoinGecko) =====
+app.get("/crypto-prices", async (_req, res) => {
   try {
-    const user = await User.findOne({ email }).select("_id email");
-    if (!user) return res.json({ message: genericMsg });
+    const url =
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,dogecoin&vs_currencies=usd";
+    const { data } = await axios.get(url, { timeout: 10000, headers: { "x-cg-demo-api-key": "" } });
+    return res.json(data);
+  } catch (e) {
+    console.error("Error obteniendo precios:", e?.response?.status || e.message);
+    return res.status(502).json({ message: "Error obteniendo precios" });
+  }
+});
+
+// ===== Listado de usuarios (Dueño/Gerente) =====
+app.get("/usuarios", verifyToken, async (req, res) => {
+  try {
+    if (!["Dueño", "Gerente"].includes(req.user.rol)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+    const rows = await User.find({}, "_id nombre email rol").lean();
+    const users = rows.map((u) => ({
+      id: u._id.toString(),
+      nombre: u.nombre,
+      email: u.email,
+      rol: u.rol,
+    }));
+    return res.json(users);
+  } catch (e) {
+    console.error("Error al obtener usuarios:", e);
+    return res.status(500).json({ message: "Error al obtener usuarios" });
+  }
+});
+
+// ===== Cambiar rol (Solo Dueño) =====
+app.put("/usuarios/:id/rol", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rol } = req.body;
+    if (req.user.rol !== "Dueño") {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID inválido" });
+    }
+    const ROLES = ["Dueño", "Gerente", "Trabajador", "Usuario"];
+    if (!ROLES.includes(rol)) {
+      return res.status(400).json({ message: "Rol inválido" });
+    }
+    await User.findByIdAndUpdate(id, { rol });
+    return res.json({ message: "Rol actualizado correctamente" });
+  } catch (e) {
+    console.error("Error al cambiar rol:", e);
+    return res.status(500).json({ message: "Error al cambiar rol" });
+  }
+});
+
+// ===== Eliminar usuario (Solo Dueño, no puede eliminarse a sí mismo) =====
+app.delete("/usuarios/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user.rol !== "Dueño") {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID inválido" });
+    }
+    if (req.user.id === id) {
+      return res.status(400).json({ message: "No puedes eliminar tu propio usuario" });
+    }
+    await User.findByIdAndDelete(id);
+    return res.json({ message: "Usuario eliminado" });
+  } catch (e) {
+    console.error("Error al eliminar usuario:", e);
+    return res.status(500).json({ message: "Error al eliminar usuario" });
+  }
+});
+
+// ===== Password reset (Brevo + token hasheado) =====
+const MAIL_FROM = process.env.MAIL_FROM || "no-reply@example.com";
+const CLIENT_URL = process.env.CLIENT_URL || "";
+const SMTP_HOST = process.env.SMTP_HOST || "smtp-relay.brevo.com";
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10);
+const SMTP_USER = process.env.SMTP_USER || "apikey";
+const SMTP_PASS = process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY || "";
+
+const transporter = nodemailer.createTransport({
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_PORT === 465,
+  auth: { user: SMTP_USER, pass: SMTP_PASS },
+});
+
+app.post("/auth/request-password-reset", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email requerido" });
+    const user = await User.findOne({ email });
+    // Para evitar enumeración de usuarios: respondemos similar aunque no exista
+    if (!user) return res.json({ message: "Si el correo existe, te enviaremos un enlace" });
 
     const tokenPlain = crypto.randomBytes(32).toString("hex");
-    const tokenHash  = crypto.createHash("sha256").update(tokenPlain).digest("hex");
-    const expires    = new Date(Date.now() + 15 * 60 * 1000);
+    const tokenHash = crypto.createHash("sha256").update(tokenPlain).digest("hex");
 
     user.resetPasswordTokenHash = tokenHash;
-    user.resetPasswordExpires   = expires;
+    user.resetPasswordExpires = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
     await user.save();
 
-    const resetLink = `${CLIENT_URL}/reset.html?token=${tokenPlain}&email=${encodeURIComponent(email)}`;
+    const resetLink = `${CLIENT_URL ? CLIENT_URL.replace(/\/+$/, "") : ""}/reset.html?token=${tokenPlain}&email=${encodeURIComponent(
+      email
+    )}`;
 
     await transporter.sendMail({
-      from: process.env.MAIL_FROM || '"OrumGS" <no-reply@tu-dominio.com>',
+      from: MAIL_FROM,
       to: email,
-      subject: "Restablecer tu contraseña",
+      subject: "Restablecer contraseña",
       html: `
-        <p>Hola,</p>
-        <p>Solicitaste restablecer tu contraseña. Este enlace expira en 15 minutos:</p>
+        <p>Solicitaste restablecer tu contraseña.</p>
+        <p>Haz clic en el siguiente enlace (válido por 1 hora):</p>
         <p><a href="${resetLink}">${resetLink}</a></p>
         <p>Si no fuiste tú, ignora este mensaje.</p>
       `,
     });
 
-    return res.json({ message: genericMsg });
+    return res.json({ message: "Si el correo existe, te enviaremos un enlace" });
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ message: "Error enviando el enlace de recuperación" });
+    console.error("Error en request-password-reset:", e);
+    return res.status(500).json({ message: "Error al solicitar restablecimiento" });
   }
 });
 
-// 2) Aplicar nueva contraseña
 app.post("/auth/reset-password", async (req, res) => {
-  const { email, token, newPassword } = req.body || {};
-  if (!email || !token || !newPassword) {
-    return res.status(400).json({ message: "Datos incompletos" });
-  }
   try {
+    const { token, email, password } = req.body;
+    if (!token || !email || !password) {
+      return res.status(400).json({ message: "Datos incompletos" });
+    }
+
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     const user = await User.findOne({
       email,
       resetPasswordTokenHash: tokenHash,
       resetPasswordExpires: { $gt: new Date() },
-    }).select("_id password resetPasswordTokenHash resetPasswordExpires");
-
-    if (!user) return res.status(400).json({ message: "Token inválido o expirado" });
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres." });
+    });
+    if (!user) {
+      return res.status(400).json({ message: "Token inválido o expirado" });
     }
 
-    const hash = bcrypt.hashSync(newPassword, 10);
-    user.password = hash;
+    user.password = await bcrypt.hash(password, 10);
     user.resetPasswordTokenHash = null;
     user.resetPasswordExpires = null;
     await user.save();
 
     return res.json({ message: "Contraseña actualizada. Ya puedes iniciar sesión." });
   } catch (e) {
-    console.error(e);
+    console.error("Error en reset-password:", e);
     return res.status(500).json({ message: "Error al restablecer la contraseña" });
   }
 });
