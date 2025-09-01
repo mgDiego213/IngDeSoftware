@@ -130,7 +130,7 @@
             </div>
 
             <!-- Gestión de Usuarios -->
-            <div v-if="activeTab === 'users' && (userRole === 'Dueño' || userRole === 'Gerente')">
+            <div v-if="activeTab === 'users' && (userRole === 'Dueño' || userRole === 'Gerente' || userRole === 'Trabajador')">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-bold text-blue-900">Gestión de Usuarios</h2>
                 </div>
@@ -650,3 +650,4 @@
 </body>
 
 </html>
+
