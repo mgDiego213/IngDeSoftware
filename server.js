@@ -135,10 +135,10 @@ app.get("/crypto-prices", async (_req, res) => {
   }
 });
 
-// ===== Listado de usuarios (Dueño/Gerente) =====
+// ===== Listado de usuarios (Dueño/Gerente/Trabajador → solo lectura para Trabajador) =====
 app.get("/usuarios", verifyToken, async (req, res) => {
   try {
-    if (!["Dueño", "Gerente"].includes(req.user.rol)) {
+    if (!["Dueño", "Gerente", "Trabajador"].includes(req.user.rol)) {
       return res.status(403).json({ message: "No autorizado" });
     }
     const rows = await User.find({}, "_id nombre email rol").lean();
