@@ -292,7 +292,7 @@
                                 loadTradingViewCharts();
                             }, 1000);
                             
-                            if (this.userRole === 'Dueño' || this.userRole === 'Gerente') {
+                            if (this.userRole === 'Dueño' || this.userRole === 'Gerente' || this.userRole === 'Trabajador') {
                                 this.loadUsers();
                             }
                         } else {
@@ -648,6 +648,4 @@
         }
     </script>
 </body>
-
 </html>
-
