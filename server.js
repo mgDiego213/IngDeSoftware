@@ -20,267 +20,301 @@ mongoose.set("strictQuery", true);
 mongoose
   .connect(MONGO_URI)
   .then(() => console.log("MongoDB conectado"))
-  .catch((e) => {
-    console.error("Error conectando a MongoDB:", e.message);
-  });
+  .catch((e) => console.error("Error conectando a MongoDB:", e.message));
 
 // ===== Modelo =====
-const userSchema = new mongoose.Schema(
-  {
-    nombre: { type: String, required: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true },
-    rol: { type: String, default: "Usuario" },
-
-    // Recuperación de contraseña
-    resetPasswordTokenHash: { type: String, default: null },
-    resetPasswordExpires: { type: Date, default: null },
-  },
-  { timestamps: true }
-);
-// Nota: NO declaramos schema.index({ email: 1 }) para evitar el warning de índice duplicado
+const userSchema = new mongoose.Schema({
+  nombre: { type: String, required: true },
+  email:  { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password:{ type: String, required: true },
+  rol:     { type: String, default: "Usuario" },
+  resetPasswordTokenHash: { type: String, default: null },
+  resetPasswordExpires:   { type: Date, default: null },
+},{ timestamps:true });
 const User = mongoose.model("User", userSchema);
 
 // ===== Util =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
-function signToken(user) {
-  return jwt.sign(
-    { id: user._id.toString(), rol: user.rol, email: user.email },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+function signToken(user){
+  return jwt.sign({ id:user._id.toString(), rol:user.rol, email:user.email }, JWT_SECRET, { expiresIn:"7d" });
 }
-
-// Middleware de auth
-function verifyToken(req, res, next) {
-  try {
+function verifyToken(req,res,next){
+  try{
     const auth = req.headers["authorization"] || req.headers["Authorization"] || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
-    if (!token) return res.status(401).json({ message: "No autorizado" });
+    const token = auth.startsWith("Bearer ")? auth.slice(7): auth;
+    if(!token) return res.status(401).json({message:"No autorizado"});
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // { id, rol, email }
-    return next();
-  } catch (e) {
-    return res.status(401).json({ message: "Token inválido o expirado" });
+    req.user = decoded;
+    next();
+  }catch{
+    res.status(401).json({message:"Token inválido o expirado"});
   }
 }
 
 // ===== Estáticos =====
 const ROOT_DIR = __dirname;
 app.use(express.static(ROOT_DIR));
-app.get("/", (_req, res) => res.sendFile(path.join(ROOT_DIR, "index.html")));
-["/Inicio.html", "/Mercados.html", "/Administracion.html", "/reset.html"].forEach((route) => {
-  app.get(route, (_req, res) => res.sendFile(path.join(ROOT_DIR, route.replace("/", ""))));
+app.get("/", (_req,res)=>res.sendFile(path.join(ROOT_DIR,"index.html")));
+["/Inicio.html","/Mercados.html","/Administracion.html","/reset.html"].forEach(route=>{
+  app.get(route, (_req,res)=>res.sendFile(path.join(ROOT_DIR, route.replace("/",""))));
 });
 
 // ===== Auth =====
-app.post("/register", async (req, res) => {
-  try {
-    const { nombre, email, password } = req.body;
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ message: "Faltan campos" });
-    }
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: "El correo ya está registrado" });
-
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ nombre, email, password: hash, rol: "Usuario" });
-
-    return res.json({ message: "Usuario registrado", id: user._id.toString() });
-  } catch (e) {
-    console.error("Error en register:", e);
-    return res.status(500).json({ message: "Error al registrar" });
-  }
+app.post("/register", async (req,res)=>{
+  try{
+    const {nombre,email,password} = req.body;
+    if(!nombre||!email||!password) return res.status(400).json({message:"Faltan campos"});
+    const exists = await User.findOne({email});
+    if(exists) return res.status(400).json({message:"El correo ya está registrado"});
+    const hash = await bcrypt.hash(password,10);
+    const user = await User.create({nombre,email,password:hash,rol:"Usuario"});
+    res.json({message:"Usuario registrado", id:user._id.toString()});
+  }catch(e){ console.error(e); res.status(500).json({message:"Error al registrar"}); }
 });
 
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Credenciales incorrectas" });
-
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Credenciales incorrectas" });
-
+app.post("/login", async (req,res)=>{
+  try{
+    const {email,password} = req.body;
+    const user = await User.findOne({email});
+    if(!user) return res.status(401).json({message:"Credenciales incorrectas"});
+    const ok = await bcrypt.compare(password,user.password);
+    if(!ok) return res.status(401).json({message:"Credenciales incorrectas"});
     const token = signToken(user);
-    return res.json({ token, rol: user.rol, userId: user._id.toString() });
-  } catch (e) {
-    console.error("Error en login:", e);
-    return res.status(500).json({ message: "Error en login" });
-  }
+    res.json({token, rol:user.rol, userId:user._id.toString()});
+  }catch(e){ console.error(e); res.status(500).json({message:"Error en login"}); }
 });
 
-app.post("/validate-token", (req, res) => {
-  try {
+app.post("/validate-token",(req,res)=>{
+  try{
     const auth = req.headers["authorization"] || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
-    if (!token) return res.status(401).json({ message: "No autorizado" });
+    const token = auth.startsWith("Bearer ")? auth.slice(7): auth;
+    if(!token) return res.status(401).json({message:"No autorizado"});
     const decoded = jwt.verify(token, JWT_SECRET);
-    return res.json({ ok: true, user: decoded });
-  } catch (e) {
-    return res.status(401).json({ message: "Token inválido o expirado" });
-  }
+    res.json({ok:true, user:decoded});
+  }catch{ res.status(401).json({message:"Token inválido o expirado"}); }
 });
 
-// ===== Datos de mercado (CoinGecko) =====
-app.get("/crypto-prices", async (_req, res) => {
-  try {
-    const url =
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,dogecoin&vs_currencies=usd";
-    const { data } = await axios.get(url, { timeout: 10000, headers: { "x-cg-demo-api-key": "" } });
-    return res.json(data);
-  } catch (e) {
-    console.error("Error obteniendo precios:", e?.response?.status || e.message);
-    return res.status(502).json({ message: "Error obteniendo precios" });
-  }
-});
-
-// ===== Listado de usuarios (Dueño/Gerente/Trabajador → solo lectura para Trabajador) =====
-app.get("/usuarios", verifyToken, async (req, res) => {
-  try {
-    if (!["Dueño", "Gerente", "Trabajador"].includes(req.user.rol)) {
-      return res.status(403).json({ message: "No autorizado" });
-    }
-    const rows = await User.find({}, "_id nombre email rol").lean();
-    const users = rows.map((u) => ({
-      id: u._id.toString(),
-      nombre: u.nombre,
-      email: u.email,
-      rol: u.rol,
-    }));
-    return res.json(users);
-  } catch (e) {
-    console.error("Error al obtener usuarios:", e);
-    return res.status(500).json({ message: "Error al obtener usuarios" });
-  }
-});
-
-// ===== Cambiar rol (Solo Dueño) =====
-app.put("/usuarios/:id/rol", verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { rol } = req.body;
-    if (req.user.rol !== "Dueño") {
-      return res.status(403).json({ message: "No autorizado" });
-    }
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "ID inválido" });
-    }
-    const ROLES = ["Dueño", "Gerente", "Trabajador", "Usuario"];
-    if (!ROLES.includes(rol)) {
-      return res.status(400).json({ message: "Rol inválido" });
-    }
-    await User.findByIdAndUpdate(id, { rol });
-    return res.json({ message: "Rol actualizado correctamente" });
-  } catch (e) {
-    console.error("Error al cambiar rol:", e);
-    return res.status(500).json({ message: "Error al cambiar rol" });
-  }
-});
-
-// ===== Eliminar usuario (Solo Dueño, no puede eliminarse a sí mismo) =====
-app.delete("/usuarios/:id", verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (req.user.rol !== "Dueño") {
-      return res.status(403).json({ message: "No autorizado" });
-    }
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "ID inválido" });
-    }
-    if (req.user.id === id) {
-      return res.status(400).json({ message: "No puedes eliminar tu propio usuario" });
-    }
-    await User.findByIdAndDelete(id);
-    return res.json({ message: "Usuario eliminado" });
-  } catch (e) {
-    console.error("Error al eliminar usuario:", e);
-    return res.status(500).json({ message: "Error al eliminar usuario" });
-  }
-});
-
-// ===== Password reset (Brevo + token hasheado) =====
+// ===== Password reset (Brevo)
 const MAIL_FROM = process.env.MAIL_FROM || "no-reply@example.com";
 const CLIENT_URL = process.env.CLIENT_URL || "";
 const SMTP_HOST = process.env.SMTP_HOST || "smtp-relay.brevo.com";
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10);
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587",10);
 const SMTP_USER = process.env.SMTP_USER || "apikey";
 const SMTP_PASS = process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY || "";
 
 const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_PORT === 465,
-  auth: { user: SMTP_USER, pass: SMTP_PASS },
+  host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_PORT===465,
+  auth:{ user:SMTP_USER, pass:SMTP_PASS },
 });
 
-app.post("/auth/request-password-reset", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email requerido" });
-    const user = await User.findOne({ email });
-    // Para evitar enumeración de usuarios: respondemos similar aunque no exista
-    if (!user) return res.json({ message: "Si el correo existe, te enviaremos un enlace" });
-
+app.post("/auth/request-password-reset", async (req,res)=>{
+  try{
+    const {email} = req.body;
+    if(!email) return res.status(400).json({message:"Email requerido"});
+    const user = await User.findOne({email});
+    if(!user) return res.json({message:"Si el correo existe, te enviaremos un enlace"});
     const tokenPlain = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto.createHash("sha256").update(tokenPlain).digest("hex");
-
+    const tokenHash  = crypto.createHash("sha256").update(tokenPlain).digest("hex");
     user.resetPasswordTokenHash = tokenHash;
-    user.resetPasswordExpires = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
+    user.resetPasswordExpires = new Date(Date.now()+1000*60*60);
     await user.save();
-
-    const resetLink = `${CLIENT_URL ? CLIENT_URL.replace(/\/+$/, "") : ""}/reset.html?token=${tokenPlain}&email=${encodeURIComponent(
-      email
-    )}`;
-
-    await transporter.sendMail({
-      from: MAIL_FROM,
-      to: email,
-      subject: "Restablecer contraseña",
-      html: `
-        <p>Solicitaste restablecer tu contraseña.</p>
-        <p>Haz clic en el siguiente enlace (válido por 1 hora):</p>
-        <p><a href="${resetLink}">${resetLink}</a></p>
-        <p>Si no fuiste tú, ignora este mensaje.</p>
-      `,
-    });
-
-    return res.json({ message: "Si el correo existe, te enviaremos un enlace" });
-  } catch (e) {
-    console.error("Error en request-password-reset:", e);
-    return res.status(500).json({ message: "Error al solicitar restablecimiento" });
-  }
+    const resetLink = `${CLIENT_URL? CLIENT_URL.replace(/\/+$/,""): ""}/reset.html?token=${tokenPlain}&email=${encodeURIComponent(email)}`;
+    await transporter.sendMail({ from:MAIL_FROM, to:email, subject:"Restablecer contraseña",
+      html:`<p>Solicitaste restablecer tu contraseña.</p><p>Usa este enlace (1h):</p><p><a href="${resetLink}">${resetLink}</a></p>`});
+    res.json({message:"Si el correo existe, te enviaremos un enlace"});
+  }catch(e){ console.error(e); res.status(500).json({message:"Error al solicitar restablecimiento"}); }
 });
 
-app.post("/auth/reset-password", async (req, res) => {
-  try {
-    const { token, email, password } = req.body;
-    if (!token || !email || !password) {
-      return res.status(400).json({ message: "Datos incompletos" });
-    }
-
+app.post("/auth/reset-password", async (req,res)=>{
+  try{
+    const {token,email,password} = req.body;
+    if(!token||!email||!password) return res.status(400).json({message:"Datos incompletos"});
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     const user = await User.findOne({
-      email,
-      resetPasswordTokenHash: tokenHash,
-      resetPasswordExpires: { $gt: new Date() },
+      email, resetPasswordTokenHash:tokenHash, resetPasswordExpires:{$gt:new Date()}
     });
-    if (!user) {
-      return res.status(400).json({ message: "Token inválido o expirado" });
+    if(!user) return res.status(400).json({message:"Token inválido o expirado"});
+    user.password = await bcrypt.hash(password,10);
+    user.resetPasswordTokenHash = null; user.resetPasswordExpires = null;
+    await user.save();
+    res.json({message:"Contraseña actualizada. Ya puedes iniciar sesión."});
+  }catch(e){ console.error(e); res.status(500).json({message:"Error al restablecer la contraseña"}); }
+});
+
+// ======= Top 30 Mixto (Cripto + Forex + Índices) =======
+/**
+ * Campos:
+ * - key: identificador interno estable
+ * - type: "crypto" | "forex" | "index"
+ * - label: cómo lo ve el usuario
+ * - tv_symbol: símbolo para TradingView
+ * - cg_id (solo crypto): id para CoinGecko
+ * - fx: { base, quote } (solo forex)
+ * - stooq (solo index): código stooq p.e. "^spx", "^ndx", "^dji", "dax", "ukx"
+ */
+const TOP30 = [
+  // === CRYPTO (18) BINANCE · USDT
+  { key:"BTCUSDT", type:"crypto", label:"BTCUSDT (Bitcoin)",        tv_symbol:"BINANCE:BTCUSDT", cg_id:"bitcoin" },
+  { key:"ETHUSDT", type:"crypto", label:"ETHUSDT (Ethereum)",       tv_symbol:"BINANCE:ETHUSDT", cg_id:"ethereum" },
+  { key:"BNBUSDT", type:"crypto", label:"BNBUSDT (BNB)",            tv_symbol:"BINANCE:BNBUSDT", cg_id:"binancecoin" },
+  { key:"SOLUSDT", type:"crypto", label:"SOLUSDT (Solana)",         tv_symbol:"BINANCE:SOLUSDT", cg_id:"solana" },
+  { key:"XRPUSDT", type:"crypto", label:"XRPUSDT (XRP)",            tv_symbol:"BINANCE:XRPUSDT", cg_id:"ripple" },
+  { key:"ADAUSDT", type:"crypto", label:"ADAUSDT (Cardano)",        tv_symbol:"BINANCE:ADAUSDT", cg_id:"cardano" },
+  { key:"DOGEUSDT",type:"crypto", label:"DOGEUSDT (Dogecoin)",      tv_symbol:"BINANCE:DOGEUSDT",cg_id:"dogecoin" },
+  { key:"AVAXUSDT",type:"crypto", label:"AVAXUSDT (Avalanche)",     tv_symbol:"BINANCE:AVAXUSDT",cg_id:"avalanche-2" },
+  { key:"TRXUSDT", type:"crypto", label:"TRXUSDT (TRON)",           tv_symbol:"BINANCE:TRXUSDT", cg_id:"tron" },
+  { key:"TONUSDT", type:"crypto", label:"TONUSDT (TON)",            tv_symbol:"BINANCE:TONUSDT", cg_id:"the-open-network" },
+  { key:"LINKUSDT",type:"crypto", label:"LINKUSDT (Chainlink)",     tv_symbol:"BINANCE:LINKUSDT",cg_id:"chainlink" },
+  { key:"MATICUSDT",type:"crypto",label:"MATICUSDT (Polygon)",      tv_symbol:"BINANCE:MATICUSDT",cg_id:"matic-network" },
+  { key:"DOTUSDT", type:"crypto", label:"DOTUSDT (Polkadot)",       tv_symbol:"BINANCE:DOTUSDT", cg_id:"polkadot" },
+  { key:"LTCUSDT", type:"crypto", label:"LTCUSDT (Litecoin)",       tv_symbol:"BINANCE:LTCUSDT", cg_id:"litecoin" },
+  { key:"BCHUSDT", type:"crypto", label:"BCHUSDT (Bitcoin Cash)",   tv_symbol:"BINANCE:BCHUSDT", cg_id:"bitcoin-cash" },
+  { key:"ATOMUSDT",type:"crypto", label:"ATOMUSDT (Cosmos)",        tv_symbol:"BINANCE:ATOMUSDT",cg_id:"cosmos" },
+  { key:"ARBUSDT", type:"crypto", label:"ARBUSDT (Arbitrum)",       tv_symbol:"BINANCE:ARBUSDT", cg_id:"arbitrum" },
+  { key:"OPUSDT",  type:"crypto", label:"OPUSDT (Optimism)",        tv_symbol:"BINANCE:OPUSDT",  cg_id:"optimism" },
+
+  // === FOREX (8)
+  { key:"EURUSD", type:"forex", label:"EURUSD", tv_symbol:"FX:EURUSD", fx:{base:"EUR",quote:"USD"} },
+  { key:"USDJPY", type:"forex", label:"USDJPY", tv_symbol:"FX:USDJPY", fx:{base:"USD",quote:"JPY"} },
+  { key:"GBPUSD", type:"forex", label:"GBPUSD", tv_symbol:"FX:GBPUSD", fx:{base:"GBP",quote:"USD"} },
+  { key:"USDCHF", type:"forex", label:"USDCHF", tv_symbol:"FX:USDCHF", fx:{base:"USD",quote:"CHF"} },
+  { key:"AUDUSD", type:"forex", label:"AUDUSD", tv_symbol:"FX:AUDUSD", fx:{base:"AUD",quote:"USD"} },
+  { key:"USDCAD", type:"forex", label:"USDCAD", tv_symbol:"FX:USDCAD", fx:{base:"USD",quote:"CAD"} },
+  { key:"EURJPY", type:"forex", label:"EURJPY", tv_symbol:"FX:EURJPY", fx:{base:"EUR",quote:"JPY"} },
+  { key:"GBPJPY", type:"forex", label:"GBPJPY", tv_symbol:"FX:GBPJPY", fx:{base:"GBP",quote:"JPY"} },
+
+  // === ÍNDICES (4)
+  { key:"SPX",   type:"index", label:"S&P 500 (SPX)",   tv_symbol:"TVC:SPX",  stooq:"^spx" },
+  { key:"NDX",   type:"index", label:"Nasdaq 100 (NDX)",tv_symbol:"TVC:NDX",  stooq:"^ndx" },
+  { key:"DJI",   type:"index", label:"Dow Jones (DJI)", tv_symbol:"TVC:DJI",  stooq:"^dji" },
+  { key:"DAX",   type:"index", label:"DAX (Alemania)",  tv_symbol:"TVC:DAX",  stooq:"dax" },
+];
+
+app.get("/top30-list", (_req,res)=> res.json(TOP30));
+
+// ===== Precios unificados por mezcla (3 llaves máx) =====
+/**
+ * /market-prices?keys=BTCUSDT,EURUSD,SPX
+ * Responde en el mismo orden:
+ * {
+ *   items: [
+ *     { key, type, label, price_usd: number|null }
+ *   ]
+ * }
+ */
+app.get("/market-prices", async (req,res)=>{
+  try{
+    const keys = String(req.query.keys||"").split(",").map(s=>s.trim()).filter(Boolean);
+    if(keys.length===0) return res.json({items:[]});
+    const items = keys.map(k => TOP30.find(x=>x.key===k)).filter(Boolean);
+    // ---- Agrupar por tipo
+    const cryptoIds = items.filter(x=>x.type==="crypto").map(x=>x.cg_id);
+    const forexList = items.filter(x=>x.type==="forex");
+    const indexList = items.filter(x=>x.type==="index");
+
+    // ---- 1) CRYPTO via CoinGecko
+    let cgPrices = {};
+    if(cryptoIds.length>0){
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cryptoIds.join(","))}&vs_currencies=usd`;
+      const { data } = await axios.get(url, { timeout:10000 });
+      cgPrices = data || {};
     }
 
-    user.password = await bcrypt.hash(password, 10);
-    user.resetPasswordTokenHash = null;
-    user.resetPasswordExpires = null;
-    await user.save();
+    // ---- 2) FOREX via exchangerate.host
+    //   Queremos cotización base/quote → p.e. EURUSD = cuántos USD por 1 EUR
+    async function fxRate(base, quote){
+      const u = `https://api.exchangerate.host/latest?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(quote)}`;
+      const { data } = await axios.get(u, { timeout:10000 });
+      return data && data.rates ? data.rates[quote] : null;
+    }
+    const fxCache = {};
+    for(const f of forexList){
+      const key = `${f.fx.base}_${f.fx.quote}`;
+      if(!fxCache[key]){
+        try{ fxCache[key] = await fxRate(f.fx.base, f.fx.quote); }
+        catch{ fxCache[key] = null; }
+      }
+    }
 
-    return res.json({ message: "Contraseña actualizada. Ya puedes iniciar sesión." });
-  } catch (e) {
-    console.error("Error en reset-password:", e);
-    return res.status(500).json({ message: "Error al restablecer la contraseña" });
+    // ---- 3) Índices via Stooq (CSV)
+    //   https://stooq.com/q/l/?s=^spx,^ndx,^dji,dax&i=d
+    let stooqMap = {};
+    if(indexList.length>0){
+      const codes = indexList.map(x=>x.stooq).join(",");
+      const url = `https://stooq.com/q/l/?s=${encodeURIComponent(codes)}&i=d`;
+      const { data } = await axios.get(url, { timeout:10000, responseType:"text" });
+      // CSV simple con encabezados: Symbol,Date,Time,Open,High,Low,Close,Volume
+      // Parseo rápido:
+      const lines = String(data||"").trim().split("\n").filter(Boolean);
+      for(const line of lines.slice(1)){
+        const parts = line.split(",");
+        const sym = parts[0]?.trim();
+        const close = parseFloat(parts[6]);
+        if(sym && !Number.isNaN(close)) stooqMap[sym] = close;
+      }
+    }
+
+    const out = items.map(it=>{
+      let price = null;
+      if(it.type==="crypto"){
+        price = cgPrices[it.cg_id]?.usd ?? null;
+      }else if(it.type==="forex"){
+        price = fxCache[`${it.fx.base}_${it.fx.quote}`] ?? null;
+      }else if(it.type==="index"){
+        price = stooqMap[it.stooq] ?? null;
+      }
+      return { key:it.key, type:it.type, label:it.label, price_usd: price };
+    });
+    res.json({items: out});
+  }catch(e){
+    console.error("market-prices error:", e?.message || e);
+    res.status(502).json({items:[]});
   }
+});
+
+// ===== (Opcional) Endpoint cripto directo que ya tenías
+app.get("/crypto-prices", async (req,res)=>{
+  try{
+    const idsParam = (req.query.ids || "bitcoin,ethereum,dogecoin").toString().trim().toLowerCase();
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(idsParam)}&vs_currencies=usd`;
+    const { data } = await axios.get(url,{ timeout:10000 });
+    res.json(data);
+  }catch(e){ console.error("Error precios CG:", e?.message); res.status(502).json({message:"Error obteniendo precios"}); }
+});
+
+// ===== Usuarios (igual que antes)
+app.get("/usuarios", verifyToken, async (req,res)=>{
+  try{
+    if(!["Dueño","Gerente","Trabajador"].includes(req.user.rol)) return res.status(403).json({message:"No autorizado"});
+    const rows = await User.find({}, "_id nombre email rol").lean();
+    const users = rows.map(u=>({ id:u._id.toString(), nombre:u.nombre, email:u.email, rol:u.rol }));
+    res.json(users);
+  }catch(e){ console.error(e); res.status(500).json({message:"Error al obtener usuarios"}); }
+});
+
+app.put("/usuarios/:id/rol", verifyToken, async (req,res)=>{
+  try{
+    const { id } = req.params; const { rol } = req.body;
+    if(req.user.rol!=="Dueño") return res.status(403).json({message:"No autorizado"});
+    if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message:"ID inválido"});
+    const ROLES = ["Dueño","Gerente","Trabajador","Usuario"];
+    if(!ROLES.includes(rol)) return res.status(400).json({message:"Rol inválido"});
+    await User.findByIdAndUpdate(id,{rol});
+    res.json({message:"Rol actualizado correctamente"});
+  }catch(e){ console.error(e); res.status(500).json({message:"Error al cambiar rol"}); }
+});
+
+app.delete("/usuarios/:id", verifyToken, async (req,res)=>{
+  try{
+    const { id } = req.params;
+    if(req.user.rol!=="Dueño") return res.status(403).json({message:"No autorizado"});
+    if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message:"ID inválido"});
+    if(req.user.id===id) return res.status(400).json({message:"No puedes eliminar tu propio usuario"});
+    await User.findByIdAndDelete(id);
+    res.json({message:"Usuario eliminado"});
+  }catch(e){ console.error(e); res.status(500).json({message:"Error al eliminar usuario"}); }
 });
 
 // ===== Servidor =====
 const PORT = process.env.PORT || 3301;
-app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+app.listen(PORT, ()=>console.log(`Servidor corriendo en el puerto ${PORT}`));
