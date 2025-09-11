@@ -123,8 +123,18 @@ const app = Vue.createApp({
 
         await this.loadTopList();
 
+        // Restaurar selección y SANITIZAR contra Top30
         const saved = JSON.parse(localStorage.getItem("markets_selection_top30")||"null");
-        if(saved && Array.isArray(saved) && saved.length===3) this.selected = saved;
+        const validKeys = new Set(this.topList.map(o=>o.key));
+        const defaults = ["BTCUSDT","ETHUSDT","SPX"]; // seguros
+
+        const nextSel = (saved && Array.isArray(saved) && saved.length===3 ? saved : defaults)
+          .map((k,i)=> validKeys.has(k) ? k : defaults[i]);
+
+        if(!this.selected || JSON.stringify(this.selected)!==JSON.stringify(nextSel)){
+          this.selected = nextSel;
+          localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
+        }
 
         this.syncSelectedToCards();
         await this.fetchPrices();
@@ -136,7 +146,14 @@ const app = Vue.createApp({
       }
     },
     goLogin(){ window.location.href="index.html"; },
-    logout(){ this.stopUpdates(); localStorage.clear(); window.location.replace("index.html"); },
+    logout(){
+      this.stopUpdates();
+      localStorage.removeItem("token");
+      localStorage.removeItem("rol");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("markets_selection_top30");
+      window.location.replace("index.html");
+    },
 
     async loadTopList(){
       try{
@@ -145,15 +162,17 @@ const app = Vue.createApp({
       }catch{
         // Fallback mínimo
         this.topList = [
-          { key:"BTCUSDT",label:"BTCUSDT (Bitcoin)" },
-          { key:"ETHUSDT",label:"ETHUSDT (Ethereum)" },
-          { key:"SPX",label:"S&P 500 (SPX)" },
+          { key:"BTCUSDT",label:"BTCUSDT (Bitcoin)", tv_symbol:"BINANCE:BTCUSDT", type:"crypto" },
+          { key:"ETHUSDT",label:"ETHUSDT (Ethereum)", tv_symbol:"BINANCE:ETHUSDT", type:"crypto" },
+          { key:"SPX",label:"S&P 500 (SPX)", tv_symbol:"TVC:SPX", type:"index" },
         ];
       }
     },
 
     onSelectionChange(){
-      // Guardar y refrescar todo
+      // Defensa extra: asegurar claves válidas del Top-30
+      const validKeys = new Set(this.topList.map(o=>o.key));
+      this.selected = this.selected.map((k,i)=> validKeys.has(k) ? k : (this.topList[i]?.key || "BTCUSDT"));
       localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
       this.syncSelectedToCards();
       this.fetchPrices();
@@ -169,8 +188,14 @@ const app = Vue.createApp({
       });
     },
 
-    startUpdates(){ if(this.updateInterval) clearInterval(this.updateInterval); this.updateInterval = setInterval(this.fetchPrices, 20000); },
-    stopUpdates(){ if(this.updateInterval){ clearInterval(this.updateInterval); this.updateInterval=null; } },
+    // Cambiado a 15 s
+    startUpdates(){
+      if(this.updateInterval) clearInterval(this.updateInterval);
+      this.updateInterval = setInterval(this.fetchPrices, 15000);
+    },
+    stopUpdates(){
+      if(this.updateInterval){ clearInterval(this.updateInterval); this.updateInterval=null; }
+    },
 
     async fetchPrices(){
       try{

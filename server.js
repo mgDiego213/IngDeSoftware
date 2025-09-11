@@ -141,7 +141,9 @@ app.post("/auth/reset-password", async (req,res)=>{
   }catch(e){ console.error(e); res.status(500).json({message:"Error al restablecer la contraseña"}); }
 });
 
-// ======= Top 30 Mixto (Cripto + Forex + Índices) =======
+/* ============================
+   Top 30 Mixto (Cripto/Forex/Índices)
+   ============================ */
 /**
  * Campos:
  * - key: identificador interno estable
@@ -150,7 +152,7 @@ app.post("/auth/reset-password", async (req,res)=>{
  * - tv_symbol: símbolo para TradingView
  * - cg_id (solo crypto): id para CoinGecko
  * - fx: { base, quote } (solo forex)
- * - stooq (solo index): código stooq p.e. "^spx", "^ndx", "^dji", "dax", "ukx"
+ * - stooq (solo index): código stooq p.e. "^spx", "^ndx", "^dji", "dax"
  */
 const TOP30 = [
   // === CRYPTO (18) BINANCE · USDT
@@ -190,29 +192,43 @@ const TOP30 = [
   { key:"DAX",   type:"index", label:"DAX (Alemania)",  tv_symbol:"TVC:DAX",  stooq:"dax" },
 ];
 
+// Lista para el front
 app.get("/top30-list", (_req,res)=> res.json(TOP30));
 
-// ===== Precios unificados por mezcla (3 llaves máx) =====
+/* ============================
+   Micro-cache en memoria (10s)
+   ============================ */
+const marketCache = new Map(); // key: "keys=BTCUSDT,SPX,..." -> { t:ms, data:{items:[...]} }
+const CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS || "10000", 10);
+
+// ===== Precios unificados por mezcla (hasta 3 llaves) =====
 /**
  * /market-prices?keys=BTCUSDT,EURUSD,SPX
- * Responde en el mismo orden:
- * {
- *   items: [
- *     { key, type, label, price_usd: number|null }
- *   ]
- * }
+ * Respuesta:
+ * { items: [ { key, type, label, price_usd: number|null } ] }
  */
 app.get("/market-prices", async (req,res)=>{
   try{
     const keys = String(req.query.keys||"").split(",").map(s=>s.trim()).filter(Boolean);
     if(keys.length===0) return res.json({items:[]});
+
+    // micro-cache
+    const cacheKey = "keys="+keys.join(",");
+    const hit = marketCache.get(cacheKey);
+    const now = Date.now();
+    if(hit && (now - hit.t) < CACHE_TTL_MS){
+      return res.json(hit.data);
+    }
+
+    // Mapeo al Top30 (descarta cualquier clave inválida)
     const items = keys.map(k => TOP30.find(x=>x.key===k)).filter(Boolean);
-    // ---- Agrupar por tipo
+
+    // Agrupar por tipo
     const cryptoIds = items.filter(x=>x.type==="crypto").map(x=>x.cg_id);
     const forexList = items.filter(x=>x.type==="forex");
     const indexList = items.filter(x=>x.type==="index");
 
-    // ---- 1) CRYPTO via CoinGecko
+    // 1) CRYPTO via CoinGecko
     let cgPrices = {};
     if(cryptoIds.length>0){
       const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cryptoIds.join(","))}&vs_currencies=usd`;
@@ -220,8 +236,7 @@ app.get("/market-prices", async (req,res)=>{
       cgPrices = data || {};
     }
 
-    // ---- 2) FOREX via exchangerate.host
-    //   Queremos cotización base/quote → p.e. EURUSD = cuántos USD por 1 EUR
+    // 2) FOREX via exchangerate.host
     async function fxRate(base, quote){
       const u = `https://api.exchangerate.host/latest?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(quote)}`;
       const { data } = await axios.get(u, { timeout:10000 });
@@ -229,22 +244,19 @@ app.get("/market-prices", async (req,res)=>{
     }
     const fxCache = {};
     for(const f of forexList){
-      const key = `${f.fx.base}_${f.fx.quote}`;
-      if(!fxCache[key]){
-        try{ fxCache[key] = await fxRate(f.fx.base, f.fx.quote); }
-        catch{ fxCache[key] = null; }
+      const k = `${f.fx.base}_${f.fx.quote}`;
+      if(!(k in fxCache)){
+        try{ fxCache[k] = await fxRate(f.fx.base, f.fx.quote); }
+        catch{ fxCache[k] = null; }
       }
     }
 
-    // ---- 3) Índices via Stooq (CSV)
-    //   https://stooq.com/q/l/?s=^spx,^ndx,^dji,dax&i=d
+    // 3) Índices via Stooq (CSV de último close)
     let stooqMap = {};
     if(indexList.length>0){
       const codes = indexList.map(x=>x.stooq).join(",");
       const url = `https://stooq.com/q/l/?s=${encodeURIComponent(codes)}&i=d`;
       const { data } = await axios.get(url, { timeout:10000, responseType:"text" });
-      // CSV simple con encabezados: Symbol,Date,Time,Open,High,Low,Close,Volume
-      // Parseo rápido:
       const lines = String(data||"").trim().split("\n").filter(Boolean);
       for(const line of lines.slice(1)){
         const parts = line.split(",");
@@ -265,14 +277,17 @@ app.get("/market-prices", async (req,res)=>{
       }
       return { key:it.key, type:it.type, label:it.label, price_usd: price };
     });
-    res.json({items: out});
+
+    const payload = { items: out };
+    marketCache.set(cacheKey, { t: now, data: payload });
+    res.json(payload);
   }catch(e){
     console.error("market-prices error:", e?.message || e);
     res.status(502).json({items:[]});
   }
 });
 
-// ===== (Opcional) Endpoint cripto directo que ya tenías
+// ===== (opcional) Endpoint cripto directo (compatibilidad)
 app.get("/crypto-prices", async (req,res)=>{
   try{
     const idsParam = (req.query.ids || "bitcoin,ethereum,dogecoin").toString().trim().toLowerCase();
@@ -314,6 +329,9 @@ app.delete("/usuarios/:id", verifyToken, async (req,res)=>{
     res.json({message:"Usuario eliminado"});
   }catch(e){ console.error(e); res.status(500).json({message:"Error al eliminar usuario"}); }
 });
+
+// ===== Healthcheck simple (útil para Render) =====
+app.get("/health", (_req,res)=> res.json({ ok:true, ts: Date.now() }));
 
 // ===== Servidor =====
 const PORT = process.env.PORT || 3301;
