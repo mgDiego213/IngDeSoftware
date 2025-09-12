@@ -293,7 +293,7 @@ app.get("/market-prices", async (req, res) => {
         const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
           cryptoIds.join(",")
         )}&vs_currencies=usd`;
-        const { data } = await axios.get(url, { timeout: 10000 });
+        const { data } = await axios.get(url, { timeout: 20000 });
         cgPrices = data || {};
       }
     } catch (e) {
@@ -322,7 +322,7 @@ app.get("/market-prices", async (req, res) => {
         const u = `https://api.exchangerate.host/latest?base=${encodeURIComponent(
           base
         )}&symbols=${encodeURIComponent(quote)}`;
-        const { data } = await axios.get(u, { timeout: 10000 });
+        const { data } = await axios.get(u, { timeout: 20000 });
         return data && data.rates ? data.rates[quote] : null;
       } catch (e) {
         console.error("FX error", base, quote, e?.response?.status || e.message);
@@ -341,7 +341,7 @@ app.get("/market-prices", async (req, res) => {
       try {
         const codes = indexList.map((x) => x.stooq).join(",");
         const url = `https://stooq.com/q/l/?s=${encodeURIComponent(codes)}&i=d`;
-        const { data } = await axios.get(url, { timeout: 10000, responseType: "text" });
+        const { data } = await axios.get(url, { timeout: 20000, responseType: "text" });
         const lines = String(data || "").trim().split("\n").filter(Boolean);
         for (const line of lines.slice(1)) {
           const parts = line.split(",");
@@ -389,7 +389,7 @@ app.get("/crypto-prices", async (req, res) => {
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
       idsParam
     )}&vs_currencies=usd`;
-    const { data } = await axios.get(url, { timeout: 10000 });
+    const { data } = await axios.get(url, { timeout: 20000 });
     res.json(data);
   } catch (e) {
     console.error("Error precios CG:", e?.message);
