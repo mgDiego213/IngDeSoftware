@@ -7,276 +7,79 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-  <style>
-    .price-container { display:flex; align-items:center; gap:8px; }
-    .price-up .price-value { color:#16a34a; }  /* verde */
-    .price-down .price-value { color:#dc2626; }/* rojo */
-    .price-indicator { font-weight:700; }
-    .chart-container { width:100%; height:400px; }
-  </style>
+  <script defer src="core.js"></script>
 </head>
 <body class="bg-gray-100">
 <div id="app">
-  <!-- Navbar -->
   <nav class="bg-white shadow-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex">
-          <div class="flex-shrink-0 flex items-center">
-            <h1 class="text-2xl font-bold text-blue-800">OrumGS</h1>
-          </div>
-          <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-            <a href="Inicio.html" v-if="isLoggedIn" class="text-gray-900 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">Inicio</a>
-            <a href="Mercados.html" v-if="isLoggedIn" class="text-gray-900 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">Mercados</a>
-            <a href="Administracion.html" v-if="isLoggedIn && (userRole==='Dueño'||userRole==='Gerente'||userRole==='Trabajador')" class="text-gray-900 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium">Administración</a>
-          </div>
-        </div>
-        <div class="hidden sm:ml-6 sm:flex sm:items-center">
-          <button v-if="!isLoggedIn" @click="goLogin" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
-            Iniciar Sesión
-          </button>
-          <div v-else class="flex items-center space-x-4">
-            <span class="text-gray-700 font-semibold">{{ userRole }}</span>
-            <button @click="logout" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition">
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      </div>
+    <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+      <a href="Inicio.html" class="text-2xl font-bold text-blue-800">OrumGS</a>
+      <button @click="onLogout" class="px-3 py-2 rounded bg-gray-800 text-white">Salir</button>
     </div>
   </nav>
 
-  <!-- Contenido -->
-  <div v-if="isLoggedIn" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h2 class="text-3xl font-bold text-blue-900 mb-6">Mercados — Top 30 (Cripto · Forex)</h2>
-
-    <!-- Selector de 3 slots -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h3 class="text-2xl font-semibold text-blue-800 mb-4">Selecciona las 3 vistas</h3>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div v-for="(slot, idx) in 3" :key="idx">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Slot {{ idx+1 }}</label>
-          <select class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring"
-                  v-model="selected[idx]" @change="onSelectionChange">
-            <option v-for="opt in topList" :key="opt.key" :value="opt.key">
-              {{ opt.label }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="text-sm text-gray-500 mt-3">* Solo puedes elegir entre el Top 30. Siempre se muestran 3.</div>
-    </div>
-
-    <!-- Tarjetas de precios -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-      <div class="bg-white p-6 rounded-lg shadow-md" v-for="(card, i) in cards" :key="'card-'+i">
-        <h3 class="text-xl font-semibold text-blue-800 mb-4">{{ card.label }}</h3>
-        <div class="price-container" :class="{'price-up': priceDirections[i]==='up', 'price-down': priceDirections[i]==='down'}">
-          <p class="price-value">{{ displayPrice(prices[i]) }}</p>
-          <span v-if="priceDirections[i]==='up'" class="price-indicator">↑</span>
-          <span v-if="priceDirections[i]==='down'" class="price-indicator">↓</span>
-        </div>
+  <main class="max-w-6xl mx-auto p-6 space-y-6">
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="font-semibold mb-3">Selecciona 3 mercados</h2>
+      <div class="grid md:grid-cols-3 gap-4">
+        <select v-for="(s, i) in selected" :key="i" v-model="selected[i]" @change="sync"
+                class="border rounded p-2">
+          <option v-for="o in topList" :key="o.key" :value="o.key">{{ o.label }}</option>
+        </select>
       </div>
     </div>
 
-    <div v-if="lastUpdate" class="text-right text-sm text-gray-500 mb-6">
-      Última actualización: {{ lastUpdate.toLocaleTimeString() }}
-    </div>
+    <!-- Cards de precio -->
+    <section class="grid md:grid-cols-3 gap-4">
+      <div v-for="c in cards" :key="c.key" class="bg-white rounded-xl p-4 shadow">
+        <h3 class="font-semibold mb-2">{{ c.label }}</h3>
+        <div class="text-2xl">{{ display[c.key] ?? "..." }}</div>
+      </div>
+    </section>
 
-    <!-- Gráficos TradingView -->
-    <div class="bg-white p-6 rounded-lg shadow-md">
-      <h3 class="text-2xl font-semibold text-blue-800 mb-4">Gráficos en Tiempo Real</h3>
-      <div :id="'chart_'+i" class="chart-container" v-for="i in [0,1,2]" :key="'chart-'+i" style="margin-bottom:20px;"></div>
-    </div>
-  </div>
+    <!-- Gráficos -->
+    <section class="grid md:grid-cols-3 gap-4">
+      <div v-for="c in cards" :key="c.key" class="bg-white rounded-xl p-2 shadow">
+        <div :id="'tv-'+c.key"></div>
+      </div>
+    </section>
+  </main>
 </div>
 
 <script>
-const API_URL = window.location.origin;
-
-const app = Vue.createApp({
-  data(){
-    return {
-      isLoggedIn:false, userRole:null, userId:null,
-      topList: [],                           // Top 30 del backend
-      selected: ["BTCUSDT","ETHUSDT","DOGEUSDT"], // 3 claves por defecto (puedes cambiarlas)
-      cards: [],                             // [{key,label,type,tv_symbol}]
-      prices: ["Cargando...","Cargando...","Cargando..."],
-      prevNumeric:[null,null,null],
-      priceDirections:[null,null,null],
-      lastUpdate:null,
-      updateInterval:null,
-    };
-  },
-  methods:{
-    async checkLoginStatus(){
-      const token = localStorage.getItem("token");
-      this.userRole = localStorage.getItem("rol");
-      this.userId   = localStorage.getItem("userId");
-      if(!token){ this.isLoggedIn = false; window.location.replace("index.html"); return; }
-      try{
-        const r = await fetch(`${API_URL}/validate-token`, { method:"POST", headers:{ Authorization:`Bearer ${token}` }});
-        if(!r.ok) throw new Error("invalid");
-        this.isLoggedIn = true;
-
-        await this.loadTopList();
-
-        // Restaurar selección y SANITIZAR contra Top30
-        const saved = JSON.parse(localStorage.getItem("markets_selection_top30")||"null");
-        const validKeys = new Set(this.topList.map(o=>o.key));
-        const defaults = ["BTCUSDT","ETHUSDT","DOGEUSDT"]; // seguros
-
-        const nextSel = (saved && Array.isArray(saved) && saved.length===3 ? saved : defaults)
-          .map((k,i)=> validKeys.has(k) ? k : defaults[i]);
-
-        if(!this.selected || JSON.stringify(this.selected)!==JSON.stringify(nextSel)){
-          this.selected = nextSel;
-          localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
-        }
-
-        this.syncSelectedToCards();
-        await this.fetchPrices();
-        this.startUpdates();
-        setTimeout(()=>this.loadCharts(), 500);
-      }catch{
-        localStorage.removeItem("token"); localStorage.removeItem("rol"); localStorage.removeItem("userId");
-        this.isLoggedIn = false; window.location.replace("index.html");
-      }
+document.addEventListener("DOMContentLoaded", async () => {
+  const app = Vue.createApp({
+    data(){ 
+      return { topList: [], selected: ["BTCUSDT","ETHUSDT","DOGEUSDT"], cards: [], display: {}, timer:null };
     },
-    goLogin(){ window.location.href="index.html"; },
-    logout(){
-      this.stopUpdates();
-      localStorage.removeItem("token");
-      localStorage.removeItem("rol");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("markets_selection_top30");
-      window.location.replace("index.html");
+    async mounted(){
+      const st = await Core.checkLoginStatus();
+      if (!st.ok) { window.location.href = "index.html"; return; }
+      this.topList = await Core.fetchTopList();
+      this.sync();
+      await this.refresh();
+      this.timer = setInterval(()=> this.refresh(), 15000);
     },
-
-    async loadTopList(){
-      try{
-        const r = await fetch(`${API_URL}/top30-list`);
-        this.topList = await r.json();
-      }catch{
-        // Fallback mínimo
-        this.topList = [
-          { key:"BTCUSDT",label:"BTCUSDT (Bitcoin)", tv_symbol:"BINANCE:BTCUSDT", type:"crypto" },
-          { key:"ETHUSDT",label:"ETHUSDT (Ethereum)", tv_symbol:"BINANCE:ETHUSDT", type:"crypto" },
-          { key:"SPX",label:"DOGEUSDT (DOGE)", tv_symbol:"BINANCE:DOGEUSDT", type:"crypto" },
-        ];
-      }
-    },
-
-    onSelectionChange(){
-      // Defensa extra: asegurar claves válidas del Top-30
-      const validKeys = new Set(this.topList.map(o=>o.key));
-      this.selected = this.selected.map((k,i)=> validKeys.has(k) ? k : (this.topList[i]?.key || "BTCUSDT"));
-      localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
-      this.syncSelectedToCards();
-      this.fetchPrices();
-      this.loadCharts();
-    },
-
-    syncSelectedToCards(){
-      const map = {};
-      this.topList.forEach(o=> map[o.key]=o);
-      this.cards = this.selected.map(k => {
-        const o = map[k] || { key:k, label:k, tv_symbol:"", type:"crypto" };
-        return { key:o.key, label:o.label, tv_symbol:o.tv_symbol, type:o.type };
-      });
-    },
-
-    // Cambiado a 15 s
-    startUpdates(){
-      if(this.updateInterval) clearInterval(this.updateInterval);
-      this.updateInterval = setInterval(this.fetchPrices, 15000);
-    },
-    stopUpdates(){
-      if(this.updateInterval){ clearInterval(this.updateInterval); this.updateInterval=null; }
-    },
-
-    async fetchPrices(){
-      try{
-        const qs = encodeURIComponent(this.cards.map(c=>c.key).join(","));
-        const r = await fetch(`${API_URL}/market-prices?keys=${qs}`);
-        const { items } = await r.json();
-
-        // Guardar previos
-        this.prevNumeric = this.prices.map(p => this.getNumeric(p));
-
-        // Mapear precios en orden de cards
-        const idx = {};
-        (items||[]).forEach(it=> idx[it.key]=it.price_usd);
-        this.prices = this.cards.map(c => {
-          const v = idx[c.key];
-          if(v==null) return "N/A";
-          // formato: si es muy chico, más decimales
-          const frac = v<0.1 ? 6 : (v<1 ? 4 : 2);
-          return Number(v).toLocaleString("en-US",{ style:"currency", currency:"USD", minimumFractionDigits:frac, maximumFractionDigits:frac });
+    beforeUnmount(){ if (this.timer) clearInterval(this.timer); },
+    methods:{
+      sync(){
+        this.cards = this.selected.map(k => this.topList.find(x => x.key === k)).filter(Boolean);
+        // cargar charts
+        this.$nextTick(() => {
+          for (const c of this.cards) Core.loadChart(`tv-${c.key}`, c.tv_symbol);
         });
-
-        // Direcciones
-        this.priceDirections = this.prices.map((_,i)=>{
-          const current = this.getNumeric(this.prices[i]);
-          const prev    = this.prevNumeric[i];
-          if(prev==null||current==null) return null;
-          return current>prev ? "up" : (current<prev ? "down" : null);
-        });
-
-        this.lastUpdate = new Date();
-        setTimeout(()=>{ this.priceDirections=[null,null,null]; }, 1500);
-      }catch(e){ console.error("fetchPrices", e); }
-    },
-
-    getNumeric(p){ if(p==="Cargando..."||p==="N/A") return null; return parseFloat(String(p).replace(/[$,]/g,"")); },
-    displayPrice(p){ return p; },
-
-    loadCharts(){
-      setTimeout(()=>{
-        this.cards.forEach((c,i)=>{
-          const id = `chart_${i}`;
-          const el = document.getElementById(id);
-          if(!el) return;
-          el.innerHTML = "";
-          try{
-            new TradingView.widget({
-              container_id: id,
-              symbol: c.tv_symbol || "BINANCE:BTCUSDT",
-              interval: "1",
-              timezone: "Etc/UTC",
-              theme: "dark",
-              style: "1",
-              locale: "es",
-              withdateranges: true,
-              allow_symbol_change: true,
-              save_image: false,
-              width: "100%",
-              height: 400,
-              autosize: false,
-              hide_volume: false,
-              studies: [],
-              show_popup_button: true,
-              popup_width: "1000",
-              popup_height: "650",
-            });
-          }catch(e){
-            el.innerHTML = `<div style="display:flex;justify-content:center;align-items:center;height:400px;background:#1E2029;color:white;border-radius:8px;">
-              <div style="text-align:center;padding:20px;">
-                <h3>Error al cargar el gráfico</h3>
-                <p>Intenta recargar la página</p>
-              </div>
-            </div>`;
-          }
-        });
-      }, 250);
-    },
-  },
-  mounted(){ this.checkLoginStatus(); },
-  beforeUnmount(){ this.stopUpdates(); }
-}).mount("#app");
+      },
+      async refresh(){
+        try {
+          const data = await Core.fetchPrices(this.selected);
+          this.display = data;
+        } catch(e){ Core.showAlert(e.message, "error"); }
+      },
+      onLogout(){ Core.logout(); window.location.href = "index.html"; }
+    }
+  });
+  app.mount("#app");
+});
 </script>
 </body>
 </html>
-

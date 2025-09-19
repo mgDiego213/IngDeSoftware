@@ -1,586 +1,84 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OrumGS</title>
-    <!-- Usar la versión de producción de Vue -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-
-    
-    <!-- Silenciar advertencias de consola de TradingView -->
-    <script>
-            window.console = (function(originalConsole) {
-            return {
-                log: function(text) {
-                    if (!String(text).includes('TradingView') && 
-                        !String(text).includes('schema') &&
-                        !String(text).includes('state with a data type')) {
-                        originalConsole.log.apply(originalConsole, arguments);
-                    }
-                },
-                warn: function(text) {
-                    if (!String(text).includes('TradingView') && 
-                        !String(text).includes('schema') &&
-                        !String(text).includes('state with a data type')) {
-                        originalConsole.warn.apply(originalConsole, arguments);
-                    }
-                },  
-                error: function(text) {
-                    if (!String(text).includes('TradingView') && 
-                        !String(text).includes('schema') &&
-                        !String(text).includes('state with a data type')) {
-                        originalConsole.error.apply(originalConsole, arguments);
-                    }
-                },
-                info: originalConsole.info,
-                clear: originalConsole.clear,
-                debug: originalConsole.debug,
-                table: originalConsole.table,
-                assert: originalConsole.assert,
-                count: originalConsole.count,
-                group: originalConsole.group,
-                groupEnd: originalConsole.groupEnd,
-                time: originalConsole.time,
-                timeEnd: originalConsole.timeEnd,
-                trace: originalConsole.trace
-            };
-        })(window.console);
-    </script>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrumGS · Inicio</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="core.js"></script>
 </head>
 <body class="bg-gray-100">
-    <div id="app">
-        <nav class="bg-white shadow-md">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <div class="flex-shrink-0 flex items-center">
-                            <h1 class="text-2xl font-bold text-blue-800">OrumGS</h1>
-                        </div>
-                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                            <a href="Inicio.html" v-if="isLoggedIn && (userRole === 'Dueño' || userRole === 'Gerente' || userRole === 'Trabajador' || userRole === 'Usuario')" class="text-gray-900 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Inicio</a>
-                            <a href="Mercados.html" v-if="isLoggedIn && (userRole === 'Dueño' || userRole === 'Gerente' || userRole === 'Trabajador' || userRole === 'Usuario')" class="text-gray-900 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Mercados</a>
-                            <a href="Administracion.html" v-if="isLoggedIn && (userRole === 'Dueño' || userRole === 'Gerente' || userRole === 'Trabajador')" class="text-gray-900 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Administración</a>
-                        </div>
-                    </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                        <button v-if="!isLoggedIn" @click="showLoginModal = true" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-300">
-                            Iniciar Sesión
-                        </button>
-                        <div v-else class="flex items-center space-x-4">
-                            <span class="text-gray-700 font-semibold">{{ userRole }}</span>
-                            <button @click="logout" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition duration-300">
-                                Cerrar Sesión
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        
-        <!-- Contenido principal para usuarios no autenticados -->
-        <div class="grid md:grid-cols-2 gap-8 mt-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">            
-            <div>
-                <h2 class="text-4xl font-bold text-blue-900 mb-6">Bienvenido a OrumGS</h2>
-                <p class="text-xl text-gray-700 mb-6">
-                    Explora los mercados globales, gestiona tus inversiones y toma decisiones inteligentes con nuestra plataforma de trading.
-                </p>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Mercados en Vivo</h3>
-                        <p>Seguimiento en tiempo real de criptomonedas y divisas.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-semibold text-blue-800 mb-4">Análisis</h3>
-                        <p>Herramientas avanzadas de análisis de mercado.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="gradient-bg rounded-lg p-8 text-white">
-                <h3 class="text-2xl font-bold mb-6">Nuestras Principales Criptomonedas</h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span><h3 class="text-xl font-semibold text-white-800 mb-4">Bitcoin (BTC)</h3></span>
-                        <span><div class="price-container" :class="{'price-up': priceDirections.bitcoin === 'up', 'price-down': priceDirections.bitcoin === 'down'}">
-                            <p class="price-value">{{ prices.bitcoin }}</p>
-                            <span v-if="priceDirections.bitcoin === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.bitcoin === 'down'" class="price-indicator">↓</span>
-                        </div></span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span><h3 class="text-xl font-semibold text-white-800 mb-4">Ethereum (ETH)</h3></span>
-                        <span><div class="price-container" :class="{'price-up': priceDirections.ethereum === 'up', 'price-down': priceDirections.ethereum === 'down'}">
-                            <p class="price-value">{{ prices.ethereum }}</p>
-                            <span v-if="priceDirections.ethereum === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.ethereum === 'down'" class="price-indicator">↓</span>
-                        </div></span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span><h3 class="text-xl font-semibold text-white-800 mb-4">Dogecoin (DOGE)</h3></span>
-                        <span><div class="price-container" :class="{'price-up': priceDirections.dogecoin === 'up', 'price-down': priceDirections.dogecoin === 'down'}">
-                            <p class="price-value">{{ prices.dogecoin }}</p>
-                            <span v-if="priceDirections.dogecoin === 'up'" class="price-indicator">↑</span>
-                            <span v-if="priceDirections.dogecoin === 'down'" class="price-indicator">↓</span>
-                        </div></span>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div id="app">
+  <!-- Navbar -->
+  <nav class="bg-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+      <a href="#" class="text-2xl font-bold text-blue-800">OrumGS</a>
+      <div class="flex items-center gap-4">
+        <span class="text-sm" v-if="user">Rol: <b>{{ user.rol }}</b></span>
+        <button @click="onLogout" class="px-3 py-2 rounded bg-gray-800 text-white">Salir</button>
+      </div>
     </div>
-</body>
+  </nav>
+
+  <main class="max-w-6xl mx-auto p-6 space-y-6">
+    <!-- Tarjetas de precios cripto -->
+    <section class="grid md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl p-4 shadow">
+        <h3 class="font-semibold mb-2">BTCUSDT</h3>
+        <div class="text-2xl">{{ prices.bitcoin ?? "..." }}</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow">
+        <h3 class="font-semibold mb-2">ETHUSDT</h3>
+        <div class="text-2xl">{{ prices.ethereum ?? "..." }}</div>
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow">
+        <h3 class="font-semibold mb-2">DOGEUSDT</h3>
+        <div class="text-2xl">{{ prices.dogecoin ?? "..." }}</div>
+      </div>
+    </section>
+
+    <!-- Gráficos TradingView -->
+    <section class="grid md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl p-2 shadow"><div id="tv-btc"></div></div>
+      <div class="bg-white rounded-xl p-2 shadow"><div id="tv-eth"></div></div>
+      <div class="bg-white rounded-xl p-2 shadow"><div id="tv-doge"></div></div>
+    </section>
+  </main>
+</div>
 
 <script>
-        // Silenciar errores de TradingView
-        window.addEventListener('error', function(event) {
-            // Silenciar errores específicos de TradingView
-            if (event.message && (
-                event.message.includes('TradingView') || 
-                event.message.includes('schema') ||
-                event.message.includes('state with a data type'))) {
-                event.preventDefault(); // Prevenir que el error se muestre en consola
-            }
-        });
+document.addEventListener("DOMContentLoaded", async () => {
+  const app = Vue.createApp({
+    data(){ return { user:null, prices: {} , timer: null }; },
+    async mounted(){
+      const st = await Core.checkLoginStatus();
+      if (!st.ok) { window.location.href = "index.html"; return; }
+      this.user = st.user;
+      await this.refresh();
+      this.timer = setInterval(() => this.refresh(), 15000);
 
-        const API_URL = window.location.origin;
-        const CRYPTOS = ["bitcoin", "ethereum", "dogecoin"];
-        const TRADINGVIEW_SYMBOLS = {
-            bitcoin: "BINANCE:BTCUSDT",
-            ethereum: "BINANCE:ETHUSDT",
-            dogecoin: "BINANCE:DOGEUSDT"
-        };
-
-        const app = Vue.createApp({
-            data() {
-                return {
-                    showLoginModal: false,
-                    showRegistroModal: false,
-                    loginEmail: '',
-                    loginPassword: '',
-                    registerName: '',
-                    registerEmail: '',
-                    registerPassword: '',
-                    isLoggedIn: false,
-                    prices: {
-                        bitcoin: "Cargando...",
-                        ethereum: "Cargando...",
-                        dogecoin: "Cargando..."
-                    },
-                    previousPrices: {
-                        bitcoin: null,
-                        ethereum: null,
-                        dogecoin: null
-                    },
-                    priceDirections: {
-                        bitcoin: null,  // 'up', 'down', o null
-                        ethereum: null,
-                        dogecoin: null
-                    },
-                    userRole: null,
-                    userId: null,
-                    activeTab: 'dashboard',
-                    users: [],
-                    showCustomAlert: false,
-                    customAlertMessage: '',
-                    updateInterval: null, // Para almacenar el ID del intervalo
-                    lastUpdate: null  // Timestamp de la última actualización
-                }
-            },
-            methods: {
-                // Método para mostrar alerta personalizada
-                showAlert(message) {
-                    this.customAlertMessage = message;
-                    this.showCustomAlert = true;
-                },
-
-                async checkLoginStatus() {
-                    const token = localStorage.getItem("token");
-                    this.userRole = localStorage.getItem("rol");
-                    this.userId = localStorage.getItem("userId");
-                    
-                    console.log("Verificando sesión... Token encontrado:", token);
-                    if (this.userRole) console.log("Rol de usuario:", this.userRole);
-
-                    if (!token) {
-                        this.isLoggedIn = false;
-                        return;
-                    }
-
-                    try {
-                        const response = await fetch(`${API_URL}/validate-token`, {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${token}`,
-                                "Content-Type": "application/json"
-                            }
-                        });
-
-                        if (response.ok) {
-                            this.isLoggedIn = true;
-                            this.fetchCryptoPrices();
-                            
-                            // Iniciar la actualización automática de precios
-                            this.startPriceUpdates();
-                            
-                            setTimeout(() => {
-                                loadTradingViewCharts();
-                            }, 1000);
-                            
-                            if (this.userRole === 'Dueño' || this.userRole === 'Gerente') {
-                                this.loadUsers();
-                            }
-                        } else {
-                            console.warn("Token inválido o expirado. Cerrando sesión...");
-                            localStorage.removeItem("token");
-                            localStorage.removeItem("rol");
-                            localStorage.removeItem("userId");
-                            this.isLoggedIn = false;
-                        }
-                    } catch (error) {
-                        console.error("Error validando el token:", error);
-                        this.isLoggedIn = false;
-                    }
-                },
-
-                // Iniciar actualizaciones automáticas
-                startPriceUpdates() {
-                    if (this.updateInterval) {
-                        clearInterval(this.updateInterval);
-                    }
-                    
-                    // Actualizar precios cada 20 segundos
-                    this.updateInterval = setInterval(() => {
-                        this.fetchCryptoPrices();
-                    }, 20000); // 20 segundos
-                },
-
-                // Detener actualizaciones automáticas
-                stopPriceUpdates() {
-                    if (this.updateInterval) {
-                        clearInterval(this.updateInterval);
-                        this.updateInterval = null;
-                    }
-                },
-
-                async fetchCryptoPrices() {
-                    if (!this.isLoggedIn) return;
-
-                    try {
-                        const response = await fetch(`${API_URL}/crypto-prices`);
-                        const data = await response.json();
-                        
-                        if (data.message) {
-                            console.warn("CoinGecko respondió con un mensaje:", data.message);
-                            return;
-                        }
-                        
-                        // Guardar los precios anteriores antes de actualizar
-                        this.previousPrices = {
-                            bitcoin: this.getNumericPrice(this.prices.bitcoin),
-                            ethereum: this.getNumericPrice(this.prices.ethereum),
-                            dogecoin: this.getNumericPrice(this.prices.dogecoin)
-                        };
-                        
-                        // Actualizar a los nuevos precios
-                        const formattedBitcoin = data.bitcoin.usd.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        });
-                        
-                        const formattedEthereum = data.ethereum.usd.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        });
-                        
-                        const formattedDogecoin = data.dogecoin.usd.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD',
-                            minimumFractionDigits: 6,
-                            maximumFractionDigits: 6
-                        });
-                        
-                        this.prices.bitcoin = formattedBitcoin;
-                        this.prices.ethereum = formattedEthereum;
-                        this.prices.dogecoin = formattedDogecoin;
-                        
-                        // Determinar la dirección del cambio de precio
-                        if (this.previousPrices.bitcoin !== null) {
-                            this.priceDirections.bitcoin = data.bitcoin.usd > this.previousPrices.bitcoin ? 'up' : 
-                                                         data.bitcoin.usd < this.previousPrices.bitcoin ? 'down' : null;
-                            
-                            this.priceDirections.ethereum = data.ethereum.usd > this.previousPrices.ethereum ? 'up' : 
-                                                          data.ethereum.usd < this.previousPrices.ethereum ? 'down' : null;
-                            
-                            this.priceDirections.dogecoin = data.dogecoin.usd > this.previousPrices.dogecoin ? 'up' : 
-                                                          data.dogecoin.usd < this.previousPrices.dogecoin ? 'down' : null;
-                        }
-                        
-                        // Actualizar timestamp de la última actualización
-                        this.lastUpdate = new Date();
-                        
-                        // Resetear las direcciones de precio después de 2 segundos
-                        setTimeout(() => {
-                            this.priceDirections = {
-                                bitcoin: null,
-                                ethereum: null,
-                                dogecoin: null
-                            };
-                        }, 2000);
-                        
-                    } catch (error) {
-                        console.error("Error obteniendo precios:", error);
-                    }
-                },
-                
-                // Extraer el valor numérico del precio formateado
-                getNumericPrice(formattedPrice) {
-                    if (formattedPrice === "Cargando...") return null;
-                    return parseFloat(formattedPrice.replace(/[$,]/g, ''));
-                },
-
-                login() {
-                    console.log("Intentando iniciar sesión con:", this.loginEmail);
-                    
-                    fetch(`${API_URL}/login`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            email: this.loginEmail,
-                            password: this.loginPassword 
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log("Respuesta del servidor:", data);
-                        if (data.token) {
-                            localStorage.setItem("token", data.token);
-                            localStorage.setItem("rol", data.rol);
-                            localStorage.setItem("userId", data.userId);
-
-                            this.isLoggedIn = true;
-                            this.userRole = data.rol;
-                            this.userId = data.userId;
-                            this.showLoginModal = false;
-                            this.fetchCryptoPrices();
-                            
-                            // Iniciar actualizaciones automáticas
-                            this.startPriceUpdates();
-
-                            // Retrasar un poco la carga de gráficos para asegurar que el DOM esté listo
-                            setTimeout(() => {
-                                loadTradingViewCharts();
-                            }, 1000);
-                        } else {
-                            // Usar alerta personalizada en lugar de alert()
-                            this.showAlert("Credenciales incorrectas");
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error en login:", error);
-                        // Usar alerta personalizada en lugar de alert()
-                        this.showAlert("Error de conexión. Intente nuevamente.");
-                    });
-                },
-                
-                register() {
-                    fetch(`${API_URL}/register`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            nombre: this.registerName,
-                            email: this.registerEmail,
-                            password: this.registerPassword 
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Usar alerta personalizada
-                        this.showAlert(data.message);
-                        if (data.id) {
-                            this.loginEmail = this.registerEmail;
-                            this.loginPassword = this.registerPassword;
-                            this.showRegistroModal = false;
-                            this.login();
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error en registro:", error);
-                        // Usar alerta personalizada
-                        this.showAlert("Error de conexión. Intente nuevamente.");
-                    });
-                },
-                
-                logout() {
-                    // 1) Parar actualizaciones si existen
-                    if (typeof this.stopPriceUpdates === "function") {
-                        this.stopPriceUpdates();
-                    }
-
-                    // 2) Limpiar sesión
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("rol");
-                    localStorage.removeItem("userId");
-
-                    // 3) Reset local (opcional)
-                    this.isLoggedIn = false;
-                    this.userRole = null;
-                    this.userId = null;
-                    this.activeTab = 'dashboard';
-
-                    // 4) Ir al index público (sin posibilidad de volver con "Atrás")
-                    window.location.replace("index.html");
-                },
-                
-                loadUsers() {
-                    const token = localStorage.getItem("token");
-                    
-                    fetch(`${API_URL}/usuarios`, {
-                        method: "GET",
-                        headers: { "Authorization": `Bearer ${token}` }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        this.users = data;
-                        console.log("Usuarios cargados:", this.users);
-                        
-                        // Cargar gráficos incluso en la pestaña de usuarios
-                        setTimeout(() => {
-                            loadTradingViewCharts();
-                        }, 1000);
-                    })
-                    .catch(error => {
-                        console.error("Error al cargar usuarios:", error);
-                        // Usar alerta personalizada
-                        this.showAlert("Error al cargar la lista de usuarios");
-                    });
-                },
-                
-                changeUserRole(userId, currentRole) {
-                    const token = localStorage.getItem("token");
-                    let newRole = prompt(`Ingrese el nuevo rol para este usuario (actual: ${currentRole})\nOpciones: Dueño, Gerente, Trabajador, Usuario:`);
-
-                    if (!newRole || !["Dueño", "Gerente", "Trabajador", "Usuario"].includes(newRole)) {
-                        // Usar alerta personalizada
-                        this.showAlert("Rol inválido.");
-                        return;
-                    }
-
-                    fetch(`${API_URL}/usuarios/${userId}/rol`, {
-                        method: "PUT",
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ rol: newRole })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Usar alerta personalizada
-                        this.showAlert(data.message);
-                        this.loadUsers(); // Recargar la lista de usuarios
-                    })
-                    .catch(error => {
-                        console.error("Error al cambiar rol:", error);
-                        // Usar alerta personalizada
-                        this.showAlert("Error al cambiar el rol");
-                    });
-                },
-                
-                deleteUser(userId) {
-                    const token = localStorage.getItem("token");
-
-                    if (!confirm("¿Estás seguro de eliminar este usuario?")) return;
-
-                    fetch(`${API_URL}/usuarios/${userId}`, {
-                        method: "DELETE",
-                        headers: { "Authorization": `Bearer ${token}` }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Usar alerta personalizada
-                        this.showAlert(data.message);
-                        this.loadUsers(); // Recargar la lista de usuarios
-                    })
-                    .catch(error => {
-                        console.error("Error al eliminar usuario:", error);
-                        // Usar alerta personalizada
-                        this.showAlert("Error al eliminar usuario");
-                    });
-                }
-            },
-            mounted() {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                // Sin sesión: mandar al index
-                window.location.replace("index.html");
-                return;
-            }
-            this.checkLoginStatus();
-            },
-            
-            beforeUnmount() {
-                // Asegurarse de detener las actualizaciones cuando el componente se desmonta
-                this.stopPriceUpdates();
-            }
-        }).mount('#app');
-
-        // Función mejorada para cargar gráficos de TradingView
-        function loadTradingViewCharts() {
-            console.log("Cargando gráficos de TradingView...");
-            
-            // Una pequeña demora para asegurar que los contenedores estén listos
-            setTimeout(() => {
-                CRYPTOS.forEach(crypto => {
-                    const chartDiv = document.getElementById(`chart_${crypto}`);
-                    if (chartDiv) {
-                        try {
-                            // Limpiar cualquier instancia previa
-                            chartDiv.innerHTML = '';
-                            
-                            // Configuración más robusta para TradingView
-                            new TradingView.widget({
-                                "container_id": `chart_${crypto}`,
-                                "symbol": TRADINGVIEW_SYMBOLS[crypto],
-                                "interval": "1",  // Intervalo de 1 minuto para datos más actualizados
-                                "timezone": "Etc/UTC",
-                                "theme": "dark",
-                                "style": "1",
-                                "locale": "es",
-                                "toolbar_bg": "#f1f3f6",
-                                "enable_publishing": false,
-                                "withdateranges": true,
-                                "hide_side_toolbar": false,
-                                "allow_symbol_change": true,
-                                "save_image": false,
-                                "width": "100%",
-                                "height": 400,
-                                "autosize": false,
-                                "hide_volume": false,
-                                "studies": [],
-                                "show_popup_button": true,
-                                "popup_width": "1000",
-                                "popup_height": "650"
-                            });
-                        } catch (error) {
-                            // Mostrar mensaje de error en el contenedor en lugar de en consola
-                            chartDiv.innerHTML = `
-                                <div style="display: flex; justify-content: center; align-items: center; height: 400px; background-color: #1E2029; color: white; border-radius: 8px;">
-                                    <div style="text-align: center; padding: 20px;">
-                                        <h3>Error al cargar el gráfico</h3>
-                                        <p>Intente recargar la página</p>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    }
-                });
-            }, 500);
-        }
-    </script>
+      // Charts
+      Core.loadChart("tv-btc", "BINANCE:BTCUSDT");
+      Core.loadChart("tv-eth", "BINANCE:ETHUSDT");
+      Core.loadChart("tv-doge", "BINANCE:DOGEUSDT");
+    },
+    beforeUnmount(){ if(this.timer) clearInterval(this.timer); },
+    methods:{
+      async refresh(){
+        try {
+          this.prices = await Core.fetchCryptoPrices();
+        } catch(e){ Core.showAlert(e.message, "error"); }
+      },
+      onLogout(){
+        Core.logout();
+        window.location.href = "index.html";
+      }
+    }
+  });
+  app.mount("#app");
+});
+</script>
+</body>
+</html>

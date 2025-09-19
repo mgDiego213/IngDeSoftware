@@ -4,232 +4,101 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>OrumGS</title>
-  <!-- Vue 3 (prod) -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <!-- Tailwind -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <!-- Tus estilos (aquí está el estilo de la alerta personalizada) -->
   <link rel="stylesheet" href="style.css">
+  <script defer src="core.js"></script>
 </head>
 <body class="bg-gray-100">
 <div id="app">
-  <!-- Navbar mínima -->
   <nav class="bg-white shadow-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex">
-          <div class="flex-shrink-0 flex items-center">
-            <h1 class="text-2xl font-bold text-blue-800">OrumGS</h1>
-          </div>
-        </div>
-        <div class="hidden sm:ml-6 sm:flex sm:items-center">
-          <button @click="showLoginModal = true"
-                  class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-300">
-            Iniciar Sesión
-          </button>
-        </div>
-      </div>
+    <div class="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+      <a href="#" class="text-2xl font-bold text-blue-800">OrumGS</a>
     </div>
   </nav>
 
-  <!-- Sección Landing / Hero -->
-  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <h2 class="text-4xl font-bold text-blue-900 mb-4">Bienvenido a OrumGS</h2>
-    <p class="text-xl text-gray-700 mb-6">
-      Explora los mercados globales, gestiona tus inversiones y toma decisiones inteligentes con nuestra plataforma.
-    </p>
-    <button @click="showLoginModal = true"
-            class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700">
-      Comenzar
-    </button>
-  </section>
+  <main class="max-w-3xl mx-auto p-6">
+    <div class="bg-white rounded-xl shadow p-6">
+      <h1 class="text-xl font-semibold mb-4">Bienvenido</h1>
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- Login -->
+        <form @submit.prevent="onLogin" class="space-y-3">
+          <h2 class="font-semibold">Iniciar sesión</h2>
+          <input v-model="loginEmail" type="email" placeholder="Email" class="w-full p-3 border rounded">
+          <input v-model="loginPassword" type="password" placeholder="Contraseña" class="w-full p-3 border rounded">
+          <button class="w-full bg-blue-600 text-white py-2 rounded">Entrar</button>
+          <a href="#" @click.prevent="openForgot" class="text-sm text-blue-700">¿Olvidaste tu contraseña?</a>
+        </form>
 
-  <!-- Modal: Login -->
-  <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
-      <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Iniciar Sesión</h2>
-      <form @submit.prevent="login">
-        <input type="email" v-model="loginEmail" placeholder="Correo electrónico"
-               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-        <input type="password" v-model="loginPassword" placeholder="Contraseña"
-               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-        <button type="submit"
-                class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
-          Iniciar Sesión
-        </button>
-      </form>
-      <p class="text-center mt-4">
-        <a href="#" @click="showRegistroModal = true; showLoginModal = false" class="text-blue-600 hover:underline">
-          ¿No tienes cuenta? Regístrate
-        </a>
-      </p>
-      <p class="text-center mt-2">
-        <a href="#" @click="showForgotModal = true; showLoginModal = false" class="text-blue-600 hover:underline">
-          ¿Olvidaste tu contraseña?
-        </a>
-      </p>
-      <button type="button" @click="showLoginModal = false"
-              class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
+        <!-- Registro -->
+        <form @submit.prevent="onRegister" class="space-y-3">
+          <h2 class="font-semibold">Crear cuenta</h2>
+          <input v-model="registerName" type="text" placeholder="Nombre" class="w-full p-3 border rounded">
+          <input v-model="registerEmail" type="email" placeholder="Email" class="w-full p-3 border rounded">
+          <input v-model="registerPassword" type="password" placeholder="Contraseña" class="w-full p-3 border rounded">
+          <button class="w-full bg-green-600 text-white py-2 rounded">Registrarme</button>
+        </form>
+      </div>
     </div>
-  </div>
+  </main>
 
-  <!-- Modal: Olvidé mi contraseña -->
-  <div v-if="showForgotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
-      <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Recuperar contraseña</h2>
-      <form @submit.prevent="requestPasswordReset">
-        <input type="email" v-model="forgotEmail" placeholder="Tu correo"
-               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-        <button type="submit"
-                class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
-          Enviarme enlace
-        </button>
+  <!-- Modal reset -->
+  <div v-if="showForgot" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-40">
+    <div class="bg-white rounded-xl p-6 w-full max-w-sm">
+      <h3 class="font-semibold mb-2">Restablecer contraseña</h3>
+      <form @submit.prevent="onForgot">
+        <input v-model="forgotEmail" type="email" placeholder="Tu email" class="w-full p-3 border rounded mb-3">
+        <div class="flex justify-end gap-2">
+          <button type="button" class="px-3 py-2 rounded border" @click="showForgot=false">Cancelar</button>
+          <button class="px-3 py-2 rounded bg-blue-600 text-white">Enviar enlace</button>
+        </div>
       </form>
-      <button type="button" @click="showForgotModal = false; showLoginModal = true"
-              class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
-    </div>
-  </div>
-
-  <!-- Modal: Registro -->
-  <div v-if="showRegistroModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white p-8 rounded-lg shadow-xl w-96 relative">
-      <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Registro</h2>
-      <form @submit.prevent="register">
-        <input type="text" v-model="registerName" placeholder="Nombre"
-               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-        <input type="email" v-model="registerEmail" placeholder="Correo electrónico"
-               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-        <input type="password" v-model="registerPassword" placeholder="Contraseña"
-               class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-        <button type="submit"
-                class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition duration-300">
-          Registrarse
-        </button>
-      </form>
-      <p class="text-center mt-4">
-        <a href="#" @click="showRegistroModal = false; showLoginModal = true" class="text-blue-600 hover:underline">
-          ¿Ya tienes cuenta? Inicia sesión
-        </a>
-      </p>
-      <button type="button" @click="showRegistroModal = false"
-              class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">✕</button>
-    </div>
-  </div>
-
-  <!-- Alerta personalizada (usa estilos de style.css) -->
-  <div v-if="showCustomAlert">
-    <div class="alert-backdrop"></div>
-    <div class="custom-alert">
-      <div class="alert-title">Esta página dice</div>
-      <div class="alert-message">{{ customAlertMessage }}</div>
-      <button @click="showCustomAlert = false" class="alert-button">Aceptar</button>
     </div>
   </div>
 </div>
 
 <script>
-  const API_URL = window.location.origin;
-
+document.addEventListener("DOMContentLoaded", () => {
   const app = Vue.createApp({
     data() {
       return {
-        // Modales
-        showLoginModal: false,
-        showRegistroModal: false,
-        showForgotModal: false,
-        // Login
-        loginEmail: '',
-        loginPassword: '',
-        // Registro
-        registerName: '',
-        registerEmail: '',
-        registerPassword: '',
-        // Recuperar pass
-        forgotEmail: '',
-        // Alerta
-        showCustomAlert: false,
-        customAlertMessage: ''
-      }
+        loginEmail: "", loginPassword: "",
+        registerName: "", registerEmail: "", registerPassword: "",
+        showForgot: false, forgotEmail: ""
+      };
     },
     methods: {
-      showAlert(msg) {
-        this.customAlertMessage = msg;
-        this.showCustomAlert = true;
-      },
-
-      async requestPasswordReset() {
+      async onLogin() {
         try {
-          const r = await fetch(`${API_URL}/auth/request-password-reset`, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ email: this.forgotEmail })
-          });
-          const d = await r.json();
-          this.showAlert(d.message || 'Si el correo existe, te enviaremos un enlace para restablecer.');
-          this.forgotEmail = '';
-          this.showForgotModal = false;
-          this.showLoginModal = true;
-        } catch {
-          this.showAlert('Error de conexión. Intenta más tarde.');
+          const user = await Core.login(this.loginEmail, this.loginPassword);
+          Core.showAlert(`Hola, ${user.nombre}`, "success");
+          window.location.href = "Inicio.html";
+        } catch (e) {
+          Core.showAlert(e.message, "error");
         }
       },
-
-      login() {
-        fetch(`${API_URL}/login`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ email: this.loginEmail, password: this.loginPassword })
-        })
-        .then(r => r.json())
-        .then(d => {
-          if (d.token) {
-            localStorage.setItem("token", d.token);
-            localStorage.setItem("rol", d.rol);
-            localStorage.setItem("userId", d.userId);
-            // Redirige al área privada
-            window.location.href = "Inicio.html";
-          } else {
-            this.showAlert(d.message || "Credenciales incorrectas");
-          }
-        })
-        .catch(() => this.showAlert("Error de conexión. Intente nuevamente."));
+      async onRegister() {
+        try {
+          await Core.register(this.registerName, this.registerEmail, this.registerPassword);
+          Core.showAlert("Cuenta creada. Ahora inicia sesión.", "success");
+        } catch (e) {
+          Core.showAlert(e.message, "error");
+        }
       },
-
-      register() {
-        fetch(`${API_URL}/register`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            nombre: this.registerName,
-            email: this.registerEmail,
-            password: this.registerPassword
-          })
-        })
-        .then(r => r.json())
-        .then(d => {
-          this.showAlert(d.message);
-          if (d.id) {
-            this.loginEmail = this.registerEmail;
-            this.loginPassword = this.registerPassword;
-            this.showRegistroModal = false;
-            this.login();
-          }
-        })
-        .catch(() => this.showAlert("Error de conexión. Intente nuevamente."));
+      openForgot(){ this.showForgot = true; },
+      async onForgot() {
+        try {
+          await Core.requestPasswordReset(this.forgotEmail);
+          Core.showAlert("Revisa tu correo para el enlace de restablecimiento.", "success");
+          this.showForgot = false;
+        } catch (e) {
+          Core.showAlert(e.message, "error");
+        }
       }
-    },
-    mounted() {
-      // Si ya hay sesión válida, redirige a Inicio.html
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      fetch(`${API_URL}/validate-token`, {
-        method:'POST',
-        headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }
-      })
-      .then(r => { if (r.ok) window.location.replace("Inicio.html"); })
-      .catch(() => {/* ignorar */});
     }
-  }).mount('#app');
+  });
+  app.mount("#app");
+});
 </script>
 </body>
 </html>

@@ -5,42 +5,47 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Restablecer contraseña - OrumGS</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script>
-    const API_URL = window.location.origin;
-    async function resetPassword(ev){
-      ev.preventDefault();
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
-      const email = params.get('email');
-      const p1 = document.getElementById('pass1').value;
-      const p2 = document.getElementById('pass2').value;
-      const msg = document.getElementById('msg');
-      if(!token || !email){ msg.textContent='Enlace inválido.'; msg.className='text-red-600'; return; }
-      if(p1.length<8){ msg.textContent='La contraseña debe tener al menos 8 caracteres.'; msg.className='text-red-600'; return; }
-      if(p1!==p2){ msg.textContent='Las contraseñas no coinciden.'; msg.className='text-red-600'; return; }
-      try{
-        const r = await fetch(`${API_URL}/auth/reset-password`,{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ email, token, newPassword:p1 })
-        });
-        const d = await r.json();
-        if(r.ok){ msg.textContent=d.message||'Contraseña actualizada.'; msg.className='text-green-700'; setTimeout(()=>location.href='index.html',1500); }
-        else { msg.textContent=d.message||'No se pudo restablecer.'; msg.className='text-red-600'; }
-      }catch{ msg.textContent='Error de conexión.'; msg.className='text-red-600'; }
-    }
-  </script>
+  <script defer src="core.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
     <h1 class="text-2xl font-bold text-blue-800 mb-6 text-center">Restablecer contraseña</h1>
-    <form onsubmit="resetPassword(event)">
+    <form id="form-reset" class="space-y-3">
       <input id="pass1" type="password" placeholder="Nueva contraseña"
-             class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+             class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
       <input id="pass2" type="password" placeholder="Confirmar contraseña"
-             class="w-full p-3 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+             class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
       <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-md hover:bg-blue-700 transition">Guardar</button>
     </form>
     <p id="msg" class="mt-4 text-center"></p>
   </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("form-reset");
+  const msg = document.getElementById("msg");
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const p1 = document.getElementById("pass1").value;
+    const p2 = document.getElementById("pass2").value;
+    if (p1 !== p2) { msg.textContent = "Las contraseñas no coinciden"; msg.className="text-red-600"; return; }
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const email = params.get("email");
+    if (!token || !email) { msg.textContent = "Enlace inválido"; msg.className="text-red-600"; return; }
+
+    try {
+      await Core.resetPasswordWithToken(email, token, p1); // usa `password` en el payload
+      msg.textContent = "Contraseña actualizada. Ya puedes iniciar sesión.";
+      msg.className = "text-green-700";
+      setTimeout(() => window.location.href = "index.html", 1500);
+    } catch(e) {
+      msg.textContent = e.message || "Error al restablecer";
+      msg.className = "text-red-600";
+    }
+  });
+});
+</script>
 </body>
 </html>
