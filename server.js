@@ -222,12 +222,6 @@ const TOP30 = [
   { key:"USDCAD", type:"forex", label:"USDCAD", tv_symbol:"FX:USDCAD", fx:{base:"USD",quote:"CAD"} },
   { key:"EURJPY", type:"forex", label:"EURJPY", tv_symbol:"FX:EURJPY", fx:{base:"EUR",quote:"JPY"} },
   { key:"GBPJPY", type:"forex", label:"GBPJPY", tv_symbol:"FX:GBPJPY", fx:{base:"GBP",quote:"JPY"} },
-
-  // === ÍNDICES (4)
-  { key:"SPX",   type:"index", label:"S&P 500 (SPX)",   tv_symbol:"TVC:SPX",  stooq:"^spx" },
-  { key:"NDX",   type:"index", label:"Nasdaq 100 (NDX)",tv_symbol:"TVC:NDX",  stooq:"^ndx" },
-  { key:"DJI",   type:"index", label:"Dow Jones (DJI)", tv_symbol:"TVC:DJI",  stooq:"^dji" },
-  { key:"DAX",   type:"index", label:"DAX (Alemania)",  tv_symbol:"TVC:DAX",  stooq:"dax" },
 ];
 
 app.get("/top30-list", (_req, res) => res.json(TOP30));
@@ -458,3 +452,4 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
    ============================ */
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+
