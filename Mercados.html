@@ -49,7 +49,7 @@
 
   <!-- Contenido -->
   <div v-if="isLoggedIn" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h2 class="text-3xl font-bold text-blue-900 mb-6">Mercados — Top 30 (Cripto · Forex · Índices)</h2>
+    <h2 class="text-3xl font-bold text-blue-900 mb-6">Mercados — Top 30 (Cripto · Forex)</h2>
 
     <!-- Selector de 3 slots -->
     <div class="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -101,7 +101,7 @@ const app = Vue.createApp({
     return {
       isLoggedIn:false, userRole:null, userId:null,
       topList: [],                           // Top 30 del backend
-      selected: ["BTCUSDT","ETHUSDT","SPX"], // 3 claves por defecto (puedes cambiarlas)
+      selected: ["BTCUSDT","ETHUSDT","DOGEUSDT"], // 3 claves por defecto (puedes cambiarlas)
       cards: [],                             // [{key,label,type,tv_symbol}]
       prices: ["Cargando...","Cargando...","Cargando..."],
       prevNumeric:[null,null,null],
@@ -126,7 +126,7 @@ const app = Vue.createApp({
         // Restaurar selección y SANITIZAR contra Top30
         const saved = JSON.parse(localStorage.getItem("markets_selection_top30")||"null");
         const validKeys = new Set(this.topList.map(o=>o.key));
-        const defaults = ["BTCUSDT","ETHUSDT","SPX"]; // seguros
+        const defaults = ["BTCUSDT","ETHUSDT","DOGEUSDT"]; // seguros
 
         const nextSel = (saved && Array.isArray(saved) && saved.length===3 ? saved : defaults)
           .map((k,i)=> validKeys.has(k) ? k : defaults[i]);
@@ -164,7 +164,7 @@ const app = Vue.createApp({
         this.topList = [
           { key:"BTCUSDT",label:"BTCUSDT (Bitcoin)", tv_symbol:"BINANCE:BTCUSDT", type:"crypto" },
           { key:"ETHUSDT",label:"ETHUSDT (Ethereum)", tv_symbol:"BINANCE:ETHUSDT", type:"crypto" },
-          { key:"SPX",label:"S&P 500 (SPX)", tv_symbol:"TVC:SPX", type:"index" },
+          { key:"SPX",label:"DOGEUSDT (DOGE)", tv_symbol:"BINANCE:DOGEUSDT", type:"crypto" },
         ];
       }
     },
@@ -279,3 +279,4 @@ const app = Vue.createApp({
 </script>
 </body>
 </html>
+
