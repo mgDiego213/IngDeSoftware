@@ -8,10 +8,10 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Si tu backend está en otro dominio, descomenta y pon aquí tu URL -->
-  <!-- <script>window.CORE_API_URL = "https://TU-API.onrender.com";</script> -->
+  <!-- Tu API y frontend están en el mismo dominio: https://orumgs.onrender.com -->
+  <!-- No necesitas CORE_API_URL extra -->
 
-  <script defer src="script.final.js"></script>
+  <script defer src="script.js"></script>
 </head>
 <body class="bg-gray-100">
   <div id="app">
@@ -54,7 +54,7 @@
           </div>
         </section>
 
-        <!-- Panel de precios (usa tu estado de Vue) -->
+        <!-- Panel de precios -->
         <section class="rounded-lg shadow-lg bg-gradient-to-br from-blue-700 to-blue-500 text-white p-6">
           <h3 class="text-2xl font-bold mb-6">Nuestras Principales Criptomonedas</h3>
 
@@ -88,5 +88,21 @@
       </div>
     </main>
   </div>
+
+  <!-- Debug helper -->
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        if (!window.__APP_OK__) {
+          console.error("Vue no montó: revisa errores en la consola (script o CORS).");
+          const el = document.createElement('div');
+          el.style.cssText = "position:fixed;top:8px;left:8px;background:#fee; color:#900; padding:10px 14px; border:1px solid #f00; z-index:9999; border-radius:8px;";
+          el.textContent = "⚠️ Vue no montó. Abre la consola (F12) para ver el error.";
+          document.body.appendChild(el);
+          setTimeout(()=>el.remove(), 6000);
+        }
+      }, 200);
+    });
+  </script>
 </body>
 </html>
