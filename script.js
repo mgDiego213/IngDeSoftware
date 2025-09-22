@@ -1,6 +1,10 @@
+// =======================
+//  script.js (completo)
+// =======================
+
 // Configuraciones principales
-const API_URL = (window.CORE_API_URL || window.location.origin).replace(/\/+$/, ""); // override opcional via window.CORE_API_URL
-window.API_URL = API_URL; // útil para probar en consola
+const API_URL = (window.CORE_API_URL || window.location.origin).replace(/\/+$/, "");
+window.API_URL = API_URL; // para probar en consola
 const CRYPTOS = ["bitcoin", "ethereum", "dogecoin"];
 const TRADINGVIEW_SYMBOLS = {
   bitcoin: "BINANCE:BTCUSDT",
@@ -208,75 +212,73 @@ const app = Vue.createApp({
     },
 
     async fetchCryptoPrices() {
-  if (!this.isLoggedIn) return;
+      if (!this.isLoggedIn) return;
 
-  // 1) Intenta tu backend primero
-  const tryBackend = async () => {
-    const response = await fetch(`${API_URL}/crypto-prices`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json(); // { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
-  };
+      // 1) Intenta tu backend
+      const tryBackend = async () => {
+        const response = await fetch(`${API_URL}/crypto-prices`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json(); // { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
+      };
 
-  // 2) Fallback estable a Binance (sin API key, CORS OK)
-  const tryBinance = async () => {
-    // Pide las 3 a la vez (BTC, ETH, DOGE) en USDT
-    const url = 'https://api.binance.com/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22,%22DOGEUSDT%22%5D';
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`Binance HTTP ${r.status}`);
-    const arr = await r.json(); // [{symbol:"BTCUSDT", price:"..."}, ...]
-    const map = {};
-    for (const it of arr) map[it.symbol] = Number(it.price);
-    return {
-      bitcoin:  { usd: map.BTCUSDT ?? null },
-      ethereum: { usd: map.ETHUSDT ?? null },
-      dogecoin: { usd: map.DOGEUSDT ?? null },
-    };
-  };
+      // 2) Fallback: Binance (sin API key)
+      const tryBinance = async () => {
+        const url = 'https://api.binance.com/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22,%22DOGEUSDT%22%5D';
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`Binance HTTP ${r.status}`);
+        const arr = await r.json(); // [{symbol:"BTCUSDT", price:"..."}, ...]
+        const map = {};
+        for (const it of arr) map[it.symbol] = Number(it.price);
+        return {
+          bitcoin:  { usd: map.BTCUSDT ?? null },
+          ethereum: { usd: map.ETHUSDT ?? null },
+          dogecoin: { usd: map.DOGEUSDT ?? null },
+        };
+      };
 
-  try {
-    const data = await tryBackend().catch(tryBinance);
-    if (data.message) return;
+      try {
+        const data = await tryBackend().catch(tryBinance);
+        if (data.message) return;
 
-    // Guarda previos (para flechas)
-    this.previousPrices = {
-      bitcoin: this.getNumericPrice(this.prices.bitcoin),
-      ethereum: this.getNumericPrice(this.prices.ethereum),
-      dogecoin: this.getNumericPrice(this.prices.dogecoin),
-    };
+        // Guardar previos
+        this.previousPrices = {
+          bitcoin: this.getNumericPrice(this.prices.bitcoin),
+          ethereum: this.getNumericPrice(this.prices.ethereum),
+          dogecoin: this.getNumericPrice(this.prices.dogecoin),
+        };
 
-    // Formatea igual que antes
-    const fBTC  = (data.bitcoin.usd  ?? null) !== null
-      ? data.bitcoin.usd.toLocaleString("en-US", { style:"currency", currency:"USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : "Cargando...";
-    const fETH  = (data.ethereum.usd ?? null) !== null
-      ? data.ethereum.usd.toLocaleString("en-US", { style:"currency", currency:"USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : "Cargando...";
-    const fDOGE = (data.dogecoin.usd ?? null) !== null
-      ? data.dogecoin.usd.toLocaleString("en-US", { style:"currency", currency:"USD", minimumFractionDigits: 6, maximumFractionDigits: 6 })
-      : "Cargando...";
+        // Formateo (igual que antes)
+        const fBTC  = (data.bitcoin.usd  ?? null) !== null
+          ? data.bitcoin.usd.toLocaleString("en-US", { style:"currency", currency:"USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : "Cargando...";
+        const fETH  = (data.ethereum.usd ?? null) !== null
+          ? data.ethereum.usd.toLocaleString("en-US", { style:"currency", currency:"USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : "Cargando...";
+        const fDOGE = (data.dogecoin.usd ?? null) !== null
+          ? data.dogecoin.usd.toLocaleString("en-US", { style:"currency", currency:"USD", minimumFractionDigits: 6, maximumFractionDigits: 6 })
+          : "Cargando...";
 
-    this.prices.bitcoin  = fBTC;
-    this.prices.ethereum = fETH;
-    this.prices.dogecoin = fDOGE;
+        this.prices.bitcoin  = fBTC;
+        this.prices.ethereum = fETH;
+        this.prices.dogecoin = fDOGE;
 
-    // Flechas ↑/↓
-    if (this.previousPrices.bitcoin !== null) {
-      this.priceDirections.bitcoin  = (data.bitcoin.usd  ?? null) > this.previousPrices.bitcoin  ? "up" : (data.bitcoin.usd  ?? null) < this.previousPrices.bitcoin  ? "down" : null;
-      this.priceDirections.ethereum = (data.ethereum.usd ?? null) > this.previousPrices.ethereum ? "up" : (data.ethereum.usd ?? null) < this.previousPrices.ethereum ? "down" : null;
-      this.priceDirections.dogecoin = (data.dogecoin.usd ?? null) > this.previousPrices.dogecoin ? "up" : (data.dogecoin.usd ?? null) < this.previousPrices.dogecoin ? "down" : null;
-    }
+        // Direcciones ↑/↓
+        if (this.previousPrices.bitcoin !== null) {
+          this.priceDirections.bitcoin  = (data.bitcoin.usd  ?? null) > this.previousPrices.bitcoin  ? "up" : (data.bitcoin.usd  ?? null) < this.previousPrices.bitcoin  ? "down" : null;
+          this.priceDirections.ethereum = (data.ethereum.usd ?? null) > this.previousPrices.ethereum ? "up" : (data.ethereum.usd ?? null) < this.previousPrices.ethereum ? "down" : null;
+          this.priceDirections.dogecoin = (data.dogecoin.usd ?? null) > this.previousPrices.dogecoin ? "up" : (data.dogecoin.usd ?? null) < this.previousPrices.dogecoin ? "down" : null;
+        }
 
-    this.lastUpdate = new Date();
+        this.lastUpdate = new Date();
 
-    // Limpia flechas luego de 2s
-    setTimeout(() => {
-      this.priceDirections = { bitcoin: null, ethereum: null, dogecoin: null };
-    }, 2000);
-  } catch (err) {
-    console.error("Error obteniendo precios:", err);
-  }
-},
-
+        // Limpiar flechas luego de 2s
+        setTimeout(() => {
+          this.priceDirections = { bitcoin: null, ethereum: null, dogecoin: null };
+        }, 2000);
+      } catch (error) {
+        console.error("Error obteniendo precios:", error);
+      }
+    },
 
     getNumericPrice(formattedPrice) {
       if (formattedPrice === "Cargando..." || !formattedPrice) return null;
@@ -405,6 +407,5 @@ function loadTradingViewCharts() {
   }, 500);
 }
 
-// Marca que Vue montó (para debug visual)
+// Marca que Vue montó (para debug)
 window.__APP_OK__ = true;
-
