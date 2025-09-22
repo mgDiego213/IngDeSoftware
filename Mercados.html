@@ -109,6 +109,9 @@
         priceDirections:[null,null,null],
         lastUpdate:null,
         updateInterval:null,
+        requestId: 0,       // ← identifica la última petición de precios
+        changeTimer: null,  // ← para “debounce” al cambiar selección
+        isFetching: false,  // ← opcional, por si quieres mostrar “Cargando…”
       };
     },
     methods:{
@@ -175,14 +178,20 @@
       },
 
       onSelectionChange(){
-        // Defensa extra: asegurar claves válidas del Top-30
+        // Defensa: asegurar que las claves existan en el Top-30
         const validKeys = new Set(this.topList.map(o=>o.key));
         this.selected = this.selected.map((k,i)=> validKeys.has(k) ? k : (this.topList[i]?.key || "BTCUSDT"));
         localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
-        this.syncSelectedToCards();
-        this.fetchPrices();
-        this.loadCharts();
+
+        // Debounce: evita múltiples fetch mientras el usuario cambia selects
+        if (this.changeTimer) clearTimeout(this.changeTimer);
+        this.changeTimer = setTimeout(async () => {
+          this.syncSelectedToCards();
+          await this.fetchPrices(true); // true: mostrar "Cargando..." inmediato y forzar actualización
+          this.loadCharts();
+        }, 200);
       },
+
 
       syncSelectedToCards(){
         const map = {};
@@ -202,47 +211,58 @@
         if(this.updateInterval){ clearInterval(this.updateInterval); this.updateInterval=null; }
       },
 
-      async fetchPrices(){
+async fetchPrices(force = false){
+  // “Marca de tiempo” de esta petición
+  const rid = ++this.requestId;
+
+  // Opcional: pone “Cargando...” mientras llega respuesta
+  if (force) {
+    this.isFetching = true;
+    this.prices = this.prices.map(() => "Cargando...");
+    this.priceDirections = [null, null, null];
+  }
+
   // 1) Intenta backend: /market-prices?keys=...
   const tryBackend = async () => {
     const qs = encodeURIComponent(this.cards.map(c=>c.key).join(","));
     const r = await fetch(`${API_URL}/market-prices?keys=${qs}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const { items } = await r.json();       // [{ key, price_usd }]
-    const idx = {}; (items||[]).forEach(it=> idx[it.key]=it.price_usd);
+    const { items } = await r.json();  // [{ key, price_usd }]
+    const idx = {}; (items||[]).forEach(it => { idx[it.key] = it.price_usd; });
     return this.cards.map(c => ({ key:c.key, usd: idx[c.key] ?? null }));
   };
 
-  // 2) Fallback: Binance por símbolo (más robusto)
+  // 2) Fallback: Binance por símbolo (más robusto que array)
   const tryBinance = async () => {
-    // Solo cripto *USDT
     const symList = this.cards
       .map(c => c.key)
-      .filter(k => /^[A-Z0-9]+USDT$/.test(k));
+      .filter(k => /^[A-Z0-9]+USDT$/.test(k)); // solo cripto vs USDT
 
     if (symList.length === 0) {
       return this.cards.map(c => ({ key:c.key, usd:null }));
     }
 
-    // Pide cada símbolo por separado; algunos entornos fallan con el array de symbols
     const reqs = symList.map(sym =>
       fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`)
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
-        .then(j => ({ symbol: sym, price: Number(j.price) }))
-        .catch(() => ({ symbol: sym, price: null }))
+        .then(j => ({ symbol:sym, price:Number(j.price) }))
+        .catch(() => ({ symbol:sym, price:null }))
     );
 
     const arr = await Promise.all(reqs);
-    const map = {}; arr.forEach(it => map[it.symbol] = it.price);
-
+    const map = {}; arr.forEach(it => { map[it.symbol] = it.price; });
     return this.cards.map(c => ({ key:c.key, usd: map[c.key] ?? null }));
   };
 
-  try{
+  try {
     const list = await tryBackend().catch(tryBinance);
 
+    // ⛔️ Si llegó una respuesta vieja (otro fetch más nuevo cambió requestId), la ignoramos
+    if (rid !== this.requestId) return;
+
     // Guardar previos (para flechas)
-    this.prevNumeric = this.prices.map(p => this.getNumeric(p));
+    const prev = this.prices.slice();
+    this.prevNumeric = prev.map(p => this.getNumeric(p));
 
     // Formatear
     this.prices = list.map(({usd}) => {
@@ -255,20 +275,23 @@
     });
 
     // Flechas
-    this.priceDirections = this.prices.map((_,i)=>{
+    this.priceDirections = this.prices.map((_,i) => {
       const current = this.getNumeric(this.prices[i]);
-      const prev    = this.prevNumeric[i];
-      if (prev==null || current==null) return null;
-      return current>prev ? "up" : (current<prev ? "down" : null);
+      const prevVal = this.prevNumeric[i];
+      if (prevVal == null || current == null) return null;
+      return current > prevVal ? "up" : (current < prevVal ? "down" : null);
     });
 
     this.lastUpdate = new Date();
-    setTimeout(()=>{ this.priceDirections=[null,null,null]; }, 1500);
-  }catch(e){
+    setTimeout(() => { this.priceDirections = [null, null, null]; }, 1500);
+  } catch (e) {
     console.error("fetchPrices error", e);
-    // Si todo falla, deja N/A como está
+    // si todo falla, se mantiene “Cargando…” o “N/A”
+  } finally {
+    if (rid === this.requestId) this.isFetching = false;
   }
 },
+
 
 
       getNumeric(p){ if(p==="Cargando..."||p==="N/A") return null; return parseFloat(String(p).replace(/[$,]/g,"")); },
@@ -320,4 +343,5 @@
 </script>
 </body>
 </html>
+
 
