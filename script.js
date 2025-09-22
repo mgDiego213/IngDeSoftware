@@ -200,7 +200,6 @@ const app = Vue.createApp({
       }
     },
 
-    
     async fetchCryptoPrices() {
       if (!this.isLoggedIn) return;
       const tryBackend = async () => {
