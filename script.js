@@ -201,80 +201,71 @@ const app = Vue.createApp({
     },
 
     
-    
     async fetchCryptoPrices() {
       if (!this.isLoggedIn) return;
-
       const tryBackend = async () => {
         const response = await fetch(`${API_URL}/crypto-prices`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
+        return response.json(); // { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
       };
-
       const tryCoinCap = async () => {
         const url = "https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,dogecoin";
         const response = await fetch(url);
         if (!response.ok) throw new Error(`CoinCap HTTP ${response.status}`);
         const j = await response.json();
         const map = {};
-        for (const a of j.data) {
-          map[a.id] = { usd: Number(a.priceUsd) };
-        }
+        for (const a of j.data) map[a.id] = { usd: Number(a.priceUsd) };
         return {
           bitcoin:  map.bitcoin  || { usd: null },
           ethereum: map.ethereum || { usd: null },
           dogecoin: map.dogecoin || { usd: null },
         };
       };
-
       try {
-        const data = await tryBackend().catch(async () => await tryCoinCap());
+        const data = await tryBackend().catch(tryCoinCap);
         if (data.message) return;
 
+        // Guardar previos
         this.previousPrices = {
           bitcoin: this.getNumericPrice(this.prices.bitcoin),
           ethereum: this.getNumericPrice(this.prices.ethereum),
           dogecoin: this.getNumericPrice(this.prices.dogecoin),
         };
 
+        // Formateo como tenías
         const formattedBitcoin = (data.bitcoin.usd ?? null) !== null
           ? data.bitcoin.usd.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          : "...";
+          : "Cargando...";
         const formattedEthereum = (data.ethereum.usd ?? null) !== null
           ? data.ethereum.usd.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          : "...";
+          : "Cargando...";
         const formattedDogecoin = (data.dogecoin.usd ?? null) !== null
           ? data.dogecoin.usd.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 })
-          : "...";
+          : "Cargando...";
 
         this.prices.bitcoin = formattedBitcoin;
         this.prices.ethereum = formattedEthereum;
         this.prices.dogecoin = formattedDogecoin;
 
+        // Direcciones
         if (this.previousPrices.bitcoin !== null) {
           this.priceDirections.bitcoin =
-            (data.bitcoin.usd ?? null) > this.previousPrices.bitcoin
-              ? "up"
-              : (data.bitcoin.usd ?? null) < this.previousPrices.bitcoin
-              ? "down"
-              : null;
+            (data.bitcoin.usd ?? null) > this.previousPrices.bitcoin ? "up" :
+            (data.bitcoin.usd ?? null) < this.previousPrices.bitcoin ? "down" : null;
           this.priceDirections.ethereum =
-            (data.ethereum.usd ?? null) > this.previousPrices.ethereum
-              ? "up"
-              : (data.ethereum.usd ?? null) < this.previousPrices.ethereum
-              ? "down"
-              : null;
+            (data.ethereum.usd ?? null) > this.previousPrices.ethereum ? "up" :
+            (data.ethereum.usd ?? null) < this.previousPrices.ethereum ? "down" : null;
           this.priceDirections.dogecoin =
-            (data.dogecoin.usd ?? null) > this.previousPrices.dogecoin
-              ? "up"
-              : (data.dogecoin.usd ?? null) < this.previousPrices.dogecoin
-              ? "down"
-              : null;
+            (data.dogecoin.usd ?? null) > this.previousPrices.dogecoin ? "up" :
+            (data.dogecoin.usd ?? null) < this.previousPrices.dogecoin ? "down" : null;
         }
 
         this.lastUpdate = new Date();
 
-        setTimeout(() => (this.priceDirections = { bitcoin: null, ethereum: null, dogecoin: null }), 2000);
+        // Limpiar flechas luego de 2s
+        setTimeout(() => {
+          this.priceDirections = { bitcoin: null, ethereum: null, dogecoin: null };
+        }, 2000);
       } catch (error) {
         console.error("Error obteniendo precios:", error);
       }
