@@ -1,3 +1,6 @@
+// ------------------------
+// server.js (OrumGS)
+// ------------------------
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -190,10 +193,10 @@ app.post("/auth/reset-password", async (req, res) => {
 });
 
 /* ============================
-   Top 30 Mixto (Cripto · Forex · Índices)
+   Top 30 (Solo Crypto + Forex)
    ============================ */
 const TOP30 = [
-  // === CRYPTO (18) BINANCE · USDT
+  // CRYPTO (BINANCE · USDT)
   { key:"BTCUSDT", type:"crypto", label:"BTCUSDT (Bitcoin)",        tv_symbol:"BINANCE:BTCUSDT", cg_id:"bitcoin" },
   { key:"ETHUSDT", type:"crypto", label:"ETHUSDT (Ethereum)",       tv_symbol:"BINANCE:ETHUSDT", cg_id:"ethereum" },
   { key:"BNBUSDT", type:"crypto", label:"BNBUSDT (BNB)",            tv_symbol:"BINANCE:BNBUSDT", cg_id:"binancecoin" },
@@ -213,7 +216,7 @@ const TOP30 = [
   { key:"ARBUSDT", type:"crypto", label:"ARBUSDT (Arbitrum)",       tv_symbol:"BINANCE:ARBUSDT", cg_id:"arbitrum" },
   { key:"OPUSDT",  type:"crypto", label:"OPUSDT (Optimism)",        tv_symbol:"BINANCE:OPUSDT",  cg_id:"optimism" },
 
-  // === FOREX (8)
+  // FOREX (usa OANDA por defecto; puedes cambiar a "FX" abajo)
   { key:"EURUSD", type:"forex", label:"EURUSD", tv_symbol:"FX:EURUSD", fx:{base:"EUR",quote:"USD"} },
   { key:"USDJPY", type:"forex", label:"USDJPY", tv_symbol:"FX:USDJPY", fx:{base:"USD",quote:"JPY"} },
   { key:"GBPUSD", type:"forex", label:"GBPUSD", tv_symbol:"FX:GBPUSD", fx:{base:"GBP",quote:"USD"} },
@@ -229,49 +232,13 @@ app.get("/top30-list", (_req, res) => res.json(TOP30));
 /* ============================
    Micro-cache en memoria
    ============================ */
-const marketCache = new Map(); // "keys=BTCUSDT,SPX" -> { t, data }
+const marketCache = new Map(); // "keys=BTCUSDT,EURUSD" -> { t, data }
 const CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS || "10000", 10);
 
 /* ============================
    Helpers externos
    ============================ */
-// Precio spot desde Binance para "BTCUSDT", "ETHUSDT", ...
-
-// Fallback para FOREX usando exchangerate.host (USD por 1 unidad del par)
-async function getFX_USD(pair) {
-  try {
-    const base = pair.slice(0,3);
-    const quote = pair.slice(3,6);
-
-    // EURUSD: devuelve USD por 1 EUR
-    if (quote === 'USD') {
-      const { data } = await axios.get(
-        `https://api.exchangerate.host/latest?base=${base}&symbols=USD`,
-        { timeout: 10000 }
-      );
-      const v = data?.rates?.USD;
-      return Number.isFinite(v) ? v : null;
-    }
-
-    // USDJPY: tasa JPY por 1 USD -> USD por 1 JPY = 1 / tasa
-    if (base === 'USD') {
-      const { data } = await axios.get(
-        `https://api.exchangerate.host/latest?base=USD&symbols=${quote}`,
-        { timeout: 10000 }
-      );
-      const q = data?.rates?.[quote];
-      return Number.isFinite(q) ? (1 / q) : null;
-    }
-
-    // Otros pares (sin USD) → lo dejamos en null (si los llegas a usar, lo encadenamos)
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-
-// (lo dejo por compatibilidad aunque ahora usamos Finnhub)
+// Precio spot desde Binance "BTCUSDT", "ETHUSDT", ...
 async function getBinancePrice(symbol) {
   try {
     const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`;
@@ -284,10 +251,40 @@ async function getBinancePrice(symbol) {
   }
 }
 
+// Fallback para FOREX usando exchangerate.host (USD por 1 unidad del par)
+async function getFX_USD(pair) {
+  try {
+    const base = pair.slice(0,3);
+    const quote = pair.slice(3,6);
+
+    if (quote === 'USD') {
+      const { data } = await axios.get(
+        `https://api.exchangerate.host/latest?base=${base}&symbols=USD`,
+        { timeout: 10000 }
+      );
+      const v = data?.rates?.USD;
+      return Number.isFinite(v) ? v : null;
+    }
+    if (base === 'USD') {
+      const { data } = await axios.get(
+        `https://api.exchangerate.host/latest?base=USD&symbols=${quote}`,
+        { timeout: 10000 }
+      );
+      const q = data?.rates?.[quote];
+      return Number.isFinite(q) ? (1 / q) : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /* ============================
-   === FINNHUB HELPERS (NUEVOS) ===
+   FINNHUB HELPERS
    ============================ */
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || "d38s4c1r01qthpo1867gd38s4c1r01qthpo18680";
+const FINNHUB_API_KEY =
+  process.env.FINNHUB_API_KEY ||
+  "d38s4c1r01qthpo1867gd38s4c1r01qthpo18680";
 const FINNHUB_HTTP_TIMEOUT = 15000;
 
 /** Último close de 1m para CRYPTO en Finnhub. Ej: "BINANCE:BTCUSDT" */
@@ -308,7 +305,7 @@ async function finnhubCryptoLast(symbolFinnhub) {
   }
 }
 
-/** Último close de 1m para FOREX en Finnhub. Por defecto usa OANDA:BASE_QUOTE */
+/** Último close de 1m para FOREX en Finnhub. Por defecto OANDA:BASE_QUOTE */
 async function finnhubForexLast(base, quote, provider = "OANDA") {
   try {
     const symbol = provider === "OANDA" ? `OANDA:${base}_${quote}` : `FX:${base}${quote}`;
@@ -328,21 +325,43 @@ async function finnhubForexLast(base, quote, provider = "OANDA") {
 }
 
 /* ============================
+   Fallback adicional: CoinGecko (batch)
+   ============================ */
+// Recibe array de ids de CoinGecko -> devuelve { id: priceUSD }
+async function getCoinGeckoBatch(cgIds) {
+  try {
+    if (!Array.isArray(cgIds) || cgIds.length === 0) return {};
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
+      cgIds.join(",")
+    )}&vs_currencies=usd`;
+    const { data } = await axios.get(url, { timeout: 12000 });
+    const out = {};
+    for (const id of cgIds) {
+      const v = data?.[id]?.usd;
+      if (typeof v === "number" && Number.isFinite(v)) out[id] = v;
+    }
+    return out;
+  } catch (e) {
+    console.error("CoinGecko batch error:", e?.response?.status || e?.message);
+    return {};
+  }
+}
+
+/* ============================
    Precios unificados
    ============================ */
 /**
- * GET /market-prices?keys=BTCUSDT,EURUSD,SPX
+ * GET /market-prices?keys=BTCUSDT,EURUSD
  * Respuesta: { items: [{ key, type, label, price_usd }] }
- * - CRYPTO: Finnhub (BINANCE:<PAR>), 1m last
- * - FOREX : Finnhub (OANDA:BASE_QUOTE por defecto), 1m last
- * - INDEX : Stooq (igual que antes)
+ * - CRYPTO: Finnhub (BINANCE:<PAR>) -> Binance -> CoinGecko
+ * - FOREX : Finnhub (OANDA:BASE_QUOTE) -> exchangerate.host
  */
-// === /market-prices con FINNHUB (solo CRYPTO + FOREX) ===
-// === /market-prices con Finnhub + fallbacks (Binance/Exchangerate) ===
 app.get("/market-prices", async (req, res) => {
   try {
     const keys = String(req.query.keys || "")
-      .split(",").map(s => s.trim()).filter(Boolean);
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (keys.length === 0) return res.json({ items: [] });
 
     // micro-cache
@@ -353,40 +372,60 @@ app.get("/market-prices", async (req, res) => {
       return res.json(hit.data);
     }
 
-    // Mapea pedido -> TOP30 para conocer type/label
-    const reqItems = keys.map(k => TOP30.find(x => x.key === k)).filter(Boolean);
-    const cryptoItems = reqItems.filter(x => x.type === "crypto");
-    const forexItems  = reqItems.filter(x => x.type === "forex");
+    // Normaliza a TOP30
+    const reqItems = keys.map((k) => TOP30.find((x) => x.key === k)).filter(Boolean);
+    const cryptoItems = reqItems.filter((x) => x.type === "crypto");
+    const forexItems  = reqItems.filter((x) => x.type === "forex");
 
-    // --- CRYPTO: Finnhub -> fallback Binance ---
+    // --- CRYPTO: Finnhub -> Binance -> CoinGecko ---
     const cryptoMap = {};
-    await Promise.all(cryptoItems.map(async (c) => {
-      const finnhubSym = `BINANCE:${c.key}`;
-      let p = await finnhubCryptoLast(finnhubSym);
-      if (p == null) p = await getBinancePrice(c.key); // fallback
-      cryptoMap[c.key] = p;
-    }));
-
-    // --- FOREX: Finnhub -> fallback exchangerate.host ---
-    const fxMap = {};
-    await Promise.all(forexItems.map(async (f) => {
-      const base = f.fx?.base, quote = f.fx?.quote;
-      let p = null;
-      if (base && quote) {
-        p = await finnhubForexLast(base, quote, "OANDA");  // o "FX" si prefieres FX:EURUSD
-        if (p == null) p = await getFX_USD(`${base}${quote}`); // fallback
+    const missingCgIds = []; // ids CG que faltan
+    const keyToCgId = {};
+    await Promise.all(
+      cryptoItems.map(async (c) => {
+        const sym = `BINANCE:${c.key}`;
+        let p = await finnhubCryptoLast(sym);
+        if (p == null) p = await getBinancePrice(c.key);
+        if (p == null && c.cg_id) {
+          missingCgIds.push(c.cg_id);
+          keyToCgId[c.key] = c.cg_id;
+        }
+        cryptoMap[c.key] = p;
+      })
+    );
+    if (missingCgIds.length) {
+      const cg = await getCoinGeckoBatch(missingCgIds);
+      for (const k of Object.keys(keyToCgId)) {
+        const id = keyToCgId[k];
+        if (cryptoMap[k] == null && typeof cg[id] === "number") cryptoMap[k] = cg[id];
       }
-      fxMap[f.key] = p;
-    }));
+    }
 
-    // Respuesta en el mismo orden pedido
-    const items = reqItems.map(it => ({
+    // --- FOREX: Finnhub -> exchangerate.host ---
+    const fxMap = {};
+    await Promise.all(
+      forexItems.map(async (f) => {
+        const base = f.fx?.base, quote = f.fx?.quote;
+        let p = null;
+        if (base && quote) {
+          p = await finnhubForexLast(base, quote, "OANDA"); // cambia a "FX" si prefieres FX:EURUSD
+          if (p == null) p = await getFX_USD(`${base}${quote}`);
+        }
+        fxMap[f.key] = p;
+      })
+    );
+
+    // Orden solicitado
+    const items = reqItems.map((it) => ({
       key: it.key,
       type: it.type,
       label: it.label,
-      price_usd: it.type === "crypto" ? (cryptoMap[it.key] ?? null)
-               : it.type === "forex"  ? (fxMap[it.key] ?? null)
-               : null
+      price_usd:
+        it.type === "crypto"
+          ? cryptoMap[it.key] ?? null
+          : it.type === "forex"
+          ? fxMap[it.key] ?? null
+          : null,
     }));
 
     const payload = { items };
@@ -398,24 +437,20 @@ app.get("/market-prices", async (req, res) => {
   }
 });
 
-
-
-/* ============================
-   Compatibilidad y Health
-   ============================ */
 /**
  * GET /crypto-prices
- * - Mantiene el "shape" esperado por tu front.
- * - Soporta ?ids=bitcoin,ethereum,dogecoin (por defecto esos 3).
- * - Responde { <id>:{ usd:<precio> }, ... } usando Finnhub (BINANCE).
+ * - Mantiene el "shape" que usa tu front { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
+ * - Soporta ?ids=bitcoin,ethereum,dogecoin
+ * - Fuente: Finnhub -> Binance -> CoinGecko
  */
-// === /crypto-prices con Finnhub + fallback Binance ===
 app.get("/crypto-prices", async (req, res) => {
   try {
     const idsParam = (req.query.ids || "bitcoin,ethereum,dogecoin")
-      .toString().trim().toLowerCase();
+      .toString()
+      .trim()
+      .toLowerCase();
 
-    const ids = idsParam.split(",").map(s => s.trim()).filter(Boolean);
+    const ids = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
 
     const idToSymbol = {
       bitcoin:  "BINANCE:BTCUSDT",
@@ -429,28 +464,39 @@ app.get("/crypto-prices", async (req, res) => {
     };
 
     const result = {};
-    await Promise.all(ids.map(async (id) => {
-      const sym = idToSymbol[id];
-      const pair = idToPair[id];
-      let p = null;
+    const missing = []; // ids que faltan para pedir a CoinGecko
 
-      // 1) Finnhub
-      if (sym) p = await finnhubCryptoLast(sym);
+    await Promise.all(
+      ids.map(async (id) => {
+        const sym = idToSymbol[id];
+        const pair = idToPair[id];
+        let p = null;
 
-      // 2) Fallback Binance si Finnhub falló (p == null)
-      if (p == null && pair) p = await getBinancePrice(pair);
+        if (sym) p = await finnhubCryptoLast(sym);
+        if (p == null && pair) p = await getBinancePrice(pair);
 
-      result[id] = { usd: p ?? null };
-    }));
+        if (p == null) missing.push(id);
+        result[id] = { usd: p ?? null };
+      })
+    );
+
+    if (missing.length) {
+      const cg = await getCoinGeckoBatch(missing);
+      for (const id of missing) {
+        if (typeof cg[id] === "number") result[id].usd = cg[id];
+      }
+    }
 
     res.json(result);
   } catch (e) {
-    console.error("Error /crypto-prices (Finnhub/Binance):", e?.message);
+    console.error("Error /crypto-prices:", e?.message);
     res.status(502).json({ message: "Error obteniendo precios" });
   }
 });
 
-
+/* ============================
+   Health
+   ============================ */
 app.get("/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 /* ============================
@@ -512,4 +558,3 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
    ============================ */
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
-
