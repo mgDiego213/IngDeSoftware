@@ -212,35 +212,31 @@
       },
 
 async fetchPrices(force = false){
-  // “Marca de tiempo” de esta petición
   const rid = ++this.requestId;
 
-  // Opcional: pone “Cargando...” mientras llega respuesta
   if (force) {
     this.isFetching = true;
     this.prices = this.prices.map(() => "Cargando...");
     this.priceDirections = [null, null, null];
   }
 
-  // 1) Intenta backend: /market-prices?keys=...
+  // 1) Backend
   const tryBackend = async () => {
     const qs = encodeURIComponent(this.cards.map(c=>c.key).join(","));
     const r = await fetch(`${API_URL}/market-prices?keys=${qs}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const { items } = await r.json();  // [{ key, price_usd }]
+    const { items } = await r.json(); // [{ key, price_usd }]
     const idx = {}; (items||[]).forEach(it => { idx[it.key] = it.price_usd; });
     return this.cards.map(c => ({ key:c.key, usd: idx[c.key] ?? null }));
   };
 
-  // 2) Fallback: Binance por símbolo (más robusto que array)
-  const tryBinance = async () => {
-    const symList = this.cards
+  // 2) Binance (cripto *USDT) por símbolo (robusto)
+  const tryBinance = async (baseList) => {
+    const symList = baseList
       .map(c => c.key)
-      .filter(k => /^[A-Z0-9]+USDT$/.test(k)); // solo cripto vs USDT
+      .filter(k => /^[A-Z0-9]+USDT$/.test(k));
 
-    if (symList.length === 0) {
-      return this.cards.map(c => ({ key:c.key, usd:null }));
-    }
+    if (symList.length === 0) return baseList.map(c => ({ key:c.key, usd:null }));
 
     const reqs = symList.map(sym =>
       fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`)
@@ -251,20 +247,86 @@ async fetchPrices(force = false){
 
     const arr = await Promise.all(reqs);
     const map = {}; arr.forEach(it => { map[it.symbol] = it.price; });
-    return this.cards.map(c => ({ key:c.key, usd: map[c.key] ?? null }));
+    return baseList.map(c => ({ key:c.key, usd: map[c.key] ?? null }));
+  };
+
+  // 3) Forex (pares de 6 letras) con exchangerate.host
+  const tryForex = async (baseList) => {
+    // Solo pares tipo EURUSD / USDJPY (6 letras)
+    const fxList = baseList
+      .map(c => c.key)
+      .filter(k => /^[A-Z]{6}$/.test(k));
+
+    if (fxList.length === 0) return baseList.map(c => ({ key:c.key, usd:null }));
+
+    // Pedimos cada par por separado: como máximo tienes 3, así evitamos lios de batch.
+    const reqs = fxList.map(pair => {
+      const base = pair.slice(0,3);
+      const quote = pair.slice(3,6);
+
+      // Si termina en USD (EURUSD): USD por 1 EUR
+      if (quote === 'USD') {
+        return fetch(`https://api.exchangerate.host/latest?base=${base}&symbols=USD`)
+          .then(r => r.ok ? r.json() : Promise.reject(r.status))
+          .then(j => ({ pair, usd: j?.rates?.USD ?? null }))
+          .catch(() => ({ pair, usd:null }));
+      }
+
+      // Si empieza con USD (USDJPY): JPY por 1 USD → USD por 1 JPY = 1 / rate
+      if (base === 'USD') {
+        return fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${quote}`)
+          .then(r => r.ok ? r.json() : Promise.reject(r.status))
+          .then(j => {
+            const q = j?.rates?.[quote] ?? null; // Q per 1 USD
+            return { pair, usd: q ? (1 / q) : null }; // USD per 1 Q
+          })
+          .catch(() => ({ pair, usd:null }));
+      }
+
+      // Otros pares (sin USD): no intentamos (podríamos encadenar dos llamadas, pero lo dejamos N/A)
+      return Promise.resolve({ pair, usd:null });
+    });
+
+    const arr = await Promise.all(reqs);
+    const map = {}; arr.forEach(it => { map[it.pair] = it.usd; });
+
+    return baseList.map(c => ({ key:c.key, usd: map[c.key] ?? null }));
   };
 
   try {
-    const list = await tryBackend().catch(tryBinance);
+    // Paso A: backend
+    let list = await tryBackend().catch(async () => {
+      // Paso B: Binance para lo que pueda (cripto USDT)
+      const afterBinance = await tryBinance(this.cards);
 
-    // ⛔️ Si llegó una respuesta vieja (otro fetch más nuevo cambió requestId), la ignoramos
+      // Paso C: Forex para los que sigan en null
+      const remaining = this.cards.map((c, i) => ({ c, i }))
+        .filter(({i}) => afterBinance[i].usd == null)
+        .map(({c}) => c);
+
+      if (remaining.length === 0) return afterBinance;
+
+      const fxFilled = await tryForex(remaining);
+
+      // Mezcla resultados (donde fxFilled tenga valor, lo ponemos)
+      const merged = afterBinance.slice();
+      const fxMap = {}; fxFilled.forEach(x => fxMap[x.key] = x.usd);
+      this.cards.forEach((c, i) => {
+        if (merged[i].usd == null && fxMap[c.key] != null) {
+          merged[i] = { key: c.key, usd: fxMap[c.key] };
+        }
+      });
+      return merged;
+    });
+
+    // Si llegó una respuesta vieja, ignórala
     if (rid !== this.requestId) return;
 
-    // Guardar previos (para flechas)
+    // Guardar previos (flechas)
     const prev = this.prices.slice();
     this.prevNumeric = prev.map(p => this.getNumeric(p));
 
-    // Formatear
+    // Formateo (con $ siempre; para USDJPY mostramos USD por 1 JPY, etc.)
     this.prices = list.map(({usd}) => {
       if (usd == null) return "N/A";
       const frac = usd < 0.1 ? 6 : (usd < 1 ? 4 : 2);
@@ -286,11 +348,11 @@ async fetchPrices(force = false){
     setTimeout(() => { this.priceDirections = [null, null, null]; }, 1500);
   } catch (e) {
     console.error("fetchPrices error", e);
-    // si todo falla, se mantiene “Cargando…” o “N/A”
   } finally {
     if (rid === this.requestId) this.isFetching = false;
   }
 },
+
 
 
 
@@ -343,5 +405,3 @@ async fetchPrices(force = false){
 </script>
 </body>
 </html>
-
-
