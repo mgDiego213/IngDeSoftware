@@ -192,7 +192,6 @@
         }, 200);
       },
 
-
       syncSelectedToCards(){
         const map = {};
         this.topList.forEach(o=> map[o.key]=o);
@@ -352,9 +351,6 @@ async fetchPrices(force = false){
     if (rid === this.requestId) this.isFetching = false;
   }
 },
-
-
-
 
       getNumeric(p){ if(p==="Cargando..."||p==="N/A") return null; return parseFloat(String(p).replace(/[$,]/g,"")); },
       displayPrice(p){ return p; },
