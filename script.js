@@ -1,5 +1,10 @@
+// =======================
+//  script.js (completo)
+// =======================
+
 // Configuraciones principales
 const API_URL = (window.CORE_API_URL || window.location.origin).replace(/\/+$/, ""); // override opcional via window.CORE_API_URL
+window.API_URL = API_URL; // útil para probar en consola
 const CRYPTOS = ["bitcoin", "ethereum", "dogecoin"];
 const TRADINGVIEW_SYMBOLS = {
   bitcoin: "BINANCE:BTCUSDT",
@@ -14,19 +19,22 @@ const app = Vue.createApp({
       // Modales
       showLoginModal: false,
       showRegistroModal: false,
-      showForgotModal: false,   // NUEVO
+      showForgotModal: false,
+
       // Formularios
       loginEmail: "",
       loginPassword: "",
       registerName: "",
       registerEmail: "",
       registerPassword: "",
-      forgotEmail: "",          // NUEVO
+      forgotEmail: "",
+
       // Estado
       isLoggedIn: false,
       userRole: null,
       userId: null,
       activeTab: "dashboard",
+
       // Precios
       prices: {
         bitcoin: "Cargando...",
@@ -37,8 +45,10 @@ const app = Vue.createApp({
       priceDirections: { bitcoin: null, ethereum: null, dogecoin: null },
       lastUpdate: null,
       updateInterval: null,
+
       // Usuarios (admin)
       users: [],
+
       // Alerta personalizada
       showCustomAlert: false,
       customAlertMessage: "",
@@ -50,6 +60,7 @@ const app = Vue.createApp({
     showAlert(message) {
       this.customAlertMessage = message;
       this.showCustomAlert = true;
+      setTimeout(() => (this.showCustomAlert = false), 3000);
     },
 
     // ------------------ Recuperación de contraseña ------------------
@@ -95,7 +106,7 @@ const app = Vue.createApp({
 
         if (response.ok) {
           this.isLoggedIn = true;
-          // Iniciar datos en sesión
+          // Inicializaciones
           this.fetchCryptoPrices();
           this.startPriceUpdates();
           setTimeout(() => loadTradingViewCharts(), 1000);
@@ -202,24 +213,28 @@ const app = Vue.createApp({
 
     async fetchCryptoPrices() {
       if (!this.isLoggedIn) return;
+
       const tryBackend = async () => {
         const response = await fetch(`${API_URL}/crypto-prices`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json(); // { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
       };
+
       const tryCoinCap = async () => {
-        const url = "https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,dogecoin";
+        const url =
+          "https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,dogecoin";
         const response = await fetch(url);
         if (!response.ok) throw new Error(`CoinCap HTTP ${response.status}`);
         const j = await response.json();
         const map = {};
         for (const a of j.data) map[a.id] = { usd: Number(a.priceUsd) };
         return {
-          bitcoin:  map.bitcoin  || { usd: null },
+          bitcoin: map.bitcoin || { usd: null },
           ethereum: map.ethereum || { usd: null },
           dogecoin: map.dogecoin || { usd: null },
         };
       };
+
       try {
         const data = await tryBackend().catch(tryCoinCap);
         if (data.message) return;
@@ -231,39 +246,70 @@ const app = Vue.createApp({
           dogecoin: this.getNumericPrice(this.prices.dogecoin),
         };
 
-        // Formateo como tenías
-        const formattedBitcoin = (data.bitcoin.usd ?? null) !== null
-          ? data.bitcoin.usd.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          : "Cargando...";
-        const formattedEthereum = (data.ethereum.usd ?? null) !== null
-          ? data.ethereum.usd.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-          : "Cargando...";
-        const formattedDogecoin = (data.dogecoin.usd ?? null) !== null
-          ? data.dogecoin.usd.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 6, maximumFractionDigits: 6 })
-          : "Cargando...";
+        // Formateo
+        const formattedBitcoin =
+          (data.bitcoin.usd ?? null) !== null
+            ? data.bitcoin.usd.toLocaleString("en-US", {
+                style: "currency",
+                currency: "USD",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : "Cargando...";
+        const formattedEthereum =
+          (data.ethereum.usd ?? null) !== null
+            ? data.ethereum.usd.toLocaleString("en-US", {
+                style: "currency",
+                currency: "USD",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : "Cargando...";
+        const formattedDogecoin =
+          (data.dogecoin.usd ?? null) !== null
+            ? data.dogecoin.usd.toLocaleString("en-US", {
+                style: "currency",
+                currency: "USD",
+                minimumFractionDigits: 6,
+                maximumFractionDigits: 6,
+              })
+            : "Cargando...";
 
         this.prices.bitcoin = formattedBitcoin;
         this.prices.ethereum = formattedEthereum;
         this.prices.dogecoin = formattedDogecoin;
 
-        // Direcciones
+        // Direcciones ↑/↓
         if (this.previousPrices.bitcoin !== null) {
           this.priceDirections.bitcoin =
-            (data.bitcoin.usd ?? null) > this.previousPrices.bitcoin ? "up" :
-            (data.bitcoin.usd ?? null) < this.previousPrices.bitcoin ? "down" : null;
+            (data.bitcoin.usd ?? null) > this.previousPrices.bitcoin
+              ? "up"
+              : (data.bitcoin.usd ?? null) < this.previousPrices.bitcoin
+              ? "down"
+              : null;
           this.priceDirections.ethereum =
-            (data.ethereum.usd ?? null) > this.previousPrices.ethereum ? "up" :
-            (data.ethereum.usd ?? null) < this.previousPrices.ethereum ? "down" : null;
+            (data.ethereum.usd ?? null) > this.previousPrices.ethereum
+              ? "up"
+              : (data.ethereum.usd ?? null) < this.previousPrices.ethereum
+              ? "down"
+              : null;
           this.priceDirections.dogecoin =
-            (data.dogecoin.usd ?? null) > this.previousPrices.dogecoin ? "up" :
-            (data.dogecoin.usd ?? null) < this.previousPrices.dogecoin ? "down" : null;
+            (data.dogecoin.usd ?? null) > this.previousPrices.dogecoin
+              ? "up"
+              : (data.dogecoin.usd ?? null) < this.previousPrices.dogecoin
+              ? "down"
+              : null;
         }
 
         this.lastUpdate = new Date();
 
         // Limpiar flechas luego de 2s
         setTimeout(() => {
-          this.priceDirections = { bitcoin: null, ethereum: null, dogecoin: null };
+          this.priceDirections = {
+            bitcoin: null,
+            ethereum: null,
+            dogecoin: null,
+          };
         }, 2000);
       } catch (error) {
         console.error("Error obteniendo precios:", error);
@@ -271,7 +317,7 @@ const app = Vue.createApp({
     },
 
     getNumericPrice(formattedPrice) {
-      if (formattedPrice === "Cargando...") return null;
+      if (formattedPrice === "Cargando..." || !formattedPrice) return null;
       return parseFloat(formattedPrice.replace(/[$,]/g, ""));
     },
 
@@ -396,3 +442,6 @@ function loadTradingViewCharts() {
     });
   }, 500);
 }
+
+// Marca que Vue montó (para debug visual)
+window.__APP_OK__ = true;
