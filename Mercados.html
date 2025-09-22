@@ -94,189 +94,220 @@
 </div>
 
 <script>
-const API_URL = window.location.origin;
+  // API_URL con override opcional (por si alguna vez separas front/backend)
+  const API_URL = (window.CORE_API_URL || window.location.origin).replace(/\/+$/, "");
 
-const app = Vue.createApp({
-  data(){
-    return {
-      isLoggedIn:false, userRole:null, userId:null,
-      topList: [],                           // Top 30 del backend
-      selected: ["BTCUSDT","ETHUSDT","DOGEUSDT"], // 3 claves por defecto (puedes cambiarlas)
-      cards: [],                             // [{key,label,type,tv_symbol}]
-      prices: ["Cargando...","Cargando...","Cargando..."],
-      prevNumeric:[null,null,null],
-      priceDirections:[null,null,null],
-      lastUpdate:null,
-      updateInterval:null,
-    };
-  },
-  methods:{
-    async checkLoginStatus(){
-      const token = localStorage.getItem("token");
-      this.userRole = localStorage.getItem("rol");
-      this.userId   = localStorage.getItem("userId");
-      if(!token){ this.isLoggedIn = false; window.location.replace("index.html"); return; }
-      try{
-        const r = await fetch(`${API_URL}/validate-token`, { method:"POST", headers:{ Authorization:`Bearer ${token}` }});
-        if(!r.ok) throw new Error("invalid");
-        this.isLoggedIn = true;
-
-        await this.loadTopList();
-
-        // Restaurar selección y SANITIZAR contra Top30
-        const saved = JSON.parse(localStorage.getItem("markets_selection_top30")||"null");
-        const validKeys = new Set(this.topList.map(o=>o.key));
-        const defaults = ["BTCUSDT","ETHUSDT","DOGEUSDT"]; // seguros
-
-        const nextSel = (saved && Array.isArray(saved) && saved.length===3 ? saved : defaults)
-          .map((k,i)=> validKeys.has(k) ? k : defaults[i]);
-
-        if(!this.selected || JSON.stringify(this.selected)!==JSON.stringify(nextSel)){
-          this.selected = nextSel;
-          localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
-        }
-
-        this.syncSelectedToCards();
-        await this.fetchPrices();
-        this.startUpdates();
-        setTimeout(()=>this.loadCharts(), 500);
-      }catch{
-        localStorage.removeItem("token"); localStorage.removeItem("rol"); localStorage.removeItem("userId");
-        this.isLoggedIn = false; window.location.replace("index.html");
-      }
+  const app = Vue.createApp({
+    data(){
+      return {
+        isLoggedIn:false, userRole:null, userId:null,
+        topList: [],                           // Top 30 desde backend (o fallback)
+        selected: ["BTCUSDT","ETHUSDT","DOGEUSDT"], // 3 claves por defecto
+        cards: [],                             // [{key,label,type,tv_symbol}]
+        prices: ["Cargando...","Cargando...","Cargando..."],
+        prevNumeric:[null,null,null],
+        priceDirections:[null,null,null],
+        lastUpdate:null,
+        updateInterval:null,
+      };
     },
-    goLogin(){ window.location.href="index.html"; },
-    logout(){
-      this.stopUpdates();
-      localStorage.removeItem("token");
-      localStorage.removeItem("rol");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("markets_selection_top30");
-      window.location.replace("index.html");
-    },
+    methods:{
+      async checkLoginStatus(){
+        const token = localStorage.getItem("token");
+        this.userRole = localStorage.getItem("rol");
+        this.userId   = localStorage.getItem("userId");
+        if(!token){ this.isLoggedIn = false; window.location.replace("index.html"); return; }
+        try{
+          const r = await fetch(`${API_URL}/validate-token`, { method:"POST", headers:{ Authorization:`Bearer ${token}` }});
+          if(!r.ok) throw new Error("invalid");
+          this.isLoggedIn = true;
 
-    async loadTopList(){
-      try{
-        const r = await fetch(`${API_URL}/top30-list`);
-        this.topList = await r.json();
-      }catch{
-        // Fallback mínimo
-        this.topList = [
-          { key:"BTCUSDT",label:"BTCUSDT (Bitcoin)", tv_symbol:"BINANCE:BTCUSDT", type:"crypto" },
-          { key:"ETHUSDT",label:"ETHUSDT (Ethereum)", tv_symbol:"BINANCE:ETHUSDT", type:"crypto" },
-          { key:"DOGEUSDT", label:"DOGEUSDT (DOGE)", tv_symbol:"BINANCE:DOGEUSDT", type:"crypto" },
-        ];
-      }
-    },
+          await this.loadTopList();
 
-    onSelectionChange(){
-      // Defensa extra: asegurar claves válidas del Top-30
-      const validKeys = new Set(this.topList.map(o=>o.key));
-      this.selected = this.selected.map((k,i)=> validKeys.has(k) ? k : (this.topList[i]?.key || "BTCUSDT"));
-      localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
-      this.syncSelectedToCards();
-      this.fetchPrices();
-      this.loadCharts();
-    },
+          // Restaurar selección y SANITIZAR contra Top30
+          const saved = JSON.parse(localStorage.getItem("markets_selection_top30")||"null");
+          const validKeys = new Set(this.topList.map(o=>o.key));
+          const defaults = ["BTCUSDT","ETHUSDT","DOGEUSDT"]; // seguros
 
-    syncSelectedToCards(){
-      const map = {};
-      this.topList.forEach(o=> map[o.key]=o);
-      this.cards = this.selected.map(k => {
-        const o = map[k] || { key:k, label:k, tv_symbol:"", type:"crypto" };
-        return { key:o.key, label:o.label, tv_symbol:o.tv_symbol, type:o.type };
-      });
-    },
+          const nextSel = (saved && Array.isArray(saved) && saved.length===3 ? saved : defaults)
+            .map((k,i)=> validKeys.has(k) ? k : defaults[i]);
 
-    // Cambiado a 15 s
-    startUpdates(){
-      if(this.updateInterval) clearInterval(this.updateInterval);
-      this.updateInterval = setInterval(this.fetchPrices, 15000);
-    },
-    stopUpdates(){
-      if(this.updateInterval){ clearInterval(this.updateInterval); this.updateInterval=null; }
-    },
-
-    async fetchPrices(){
-      try{
-        const qs = encodeURIComponent(this.cards.map(c=>c.key).join(","));
-        const r = await fetch(`${API_URL}/market-prices?keys=${qs}`);
-        const { items } = await r.json();
-
-        // Guardar previos
-        this.prevNumeric = this.prices.map(p => this.getNumeric(p));
-
-        // Mapear precios en orden de cards
-        const idx = {};
-        (items||[]).forEach(it=> idx[it.key]=it.price_usd);
-        this.prices = this.cards.map(c => {
-          const v = idx[c.key];
-          if(v==null) return "N/A";
-          // formato: si es muy chico, más decimales
-          const frac = v<0.1 ? 6 : (v<1 ? 4 : 2);
-          return Number(v).toLocaleString("en-US",{ style:"currency", currency:"USD", minimumFractionDigits:frac, maximumFractionDigits:frac });
-        });
-
-        // Direcciones
-        this.priceDirections = this.prices.map((_,i)=>{
-          const current = this.getNumeric(this.prices[i]);
-          const prev    = this.prevNumeric[i];
-          if(prev==null||current==null) return null;
-          return current>prev ? "up" : (current<prev ? "down" : null);
-        });
-
-        this.lastUpdate = new Date();
-        setTimeout(()=>{ this.priceDirections=[null,null,null]; }, 1500);
-      }catch(e){ console.error("fetchPrices", e); }
-    },
-
-    getNumeric(p){ if(p==="Cargando..."||p==="N/A") return null; return parseFloat(String(p).replace(/[$,]/g,"")); },
-    displayPrice(p){ return p; },
-
-    loadCharts(){
-      setTimeout(()=>{
-        this.cards.forEach((c,i)=>{
-          const id = `chart_${i}`;
-          const el = document.getElementById(id);
-          if(!el) return;
-          el.innerHTML = "";
-          try{
-            new TradingView.widget({
-              container_id: id,
-              symbol: c.tv_symbol || "BINANCE:BTCUSDT",
-              interval: "1",
-              timezone: "Etc/UTC",
-              theme: "dark",
-              style: "1",
-              locale: "es",
-              withdateranges: true,
-              allow_symbol_change: true,
-              save_image: false,
-              width: "100%",
-              height: 400,
-              autosize: false,
-              hide_volume: false,
-              studies: [],
-              show_popup_button: true,
-              popup_width: "1000",
-              popup_height: "650",
-            });
-          }catch(e){
-            el.innerHTML = `<div style="display:flex;justify-content:center;align-items:center;height:400px;background:#1E2029;color:white;border-radius:8px;">
-              <div style="text-align:center;padding:20px;">
-                <h3>Error al cargar el gráfico</h3>
-                <p>Intenta recargar la página</p>
-              </div>
-            </div>`;
+          if(!this.selected || JSON.stringify(this.selected)!==JSON.stringify(nextSel)){
+            this.selected = nextSel;
+            localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
           }
+
+          this.syncSelectedToCards();
+          await this.fetchPrices();
+          this.startUpdates();
+          setTimeout(()=>this.loadCharts(), 500);
+        }catch{
+          localStorage.removeItem("token"); localStorage.removeItem("rol"); localStorage.removeItem("userId");
+          this.isLoggedIn = false; window.location.replace("index.html");
+        }
+      },
+      goLogin(){ window.location.href="index.html"; },
+      logout(){
+        this.stopUpdates();
+        localStorage.removeItem("token");
+        localStorage.removeItem("rol");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("markets_selection_top30");
+        window.location.replace("index.html");
+      },
+
+      async loadTopList(){
+        try{
+          const r = await fetch(`${API_URL}/top30-list`);
+          if (!r.ok) throw new Error("no top30");
+          this.topList = await r.json();
+        }catch{
+          // Fallback mínimo (cripto) si el backend falla
+          this.topList = [
+            { key:"BTCUSDT",label:"BTCUSDT (Bitcoin)", tv_symbol:"BINANCE:BTCUSDT", type:"crypto" },
+            { key:"ETHUSDT",label:"ETHUSDT (Ethereum)", tv_symbol:"BINANCE:ETHUSDT", type:"crypto" },
+            { key:"DOGEUSDT", label:"DOGEUSDT (DOGE)", tv_symbol:"BINANCE:DOGEUSDT", type:"crypto" },
+            { key:"SOLUSDT", label:"SOLUSDT (Solana)", tv_symbol:"BINANCE:SOLUSDT", type:"crypto" },
+            { key:"XRPUSDT", label:"XRPUSDT (XRP)", tv_symbol:"BINANCE:XRPUSDT", type:"crypto" },
+            { key:"ADAUSDT", label:"ADAUSDT (Cardano)", tv_symbol:"BINANCE:ADAUSDT", type:"crypto" },
+          ];
+        }
+      },
+
+      onSelectionChange(){
+        // Defensa extra: asegurar claves válidas del Top-30
+        const validKeys = new Set(this.topList.map(o=>o.key));
+        this.selected = this.selected.map((k,i)=> validKeys.has(k) ? k : (this.topList[i]?.key || "BTCUSDT"));
+        localStorage.setItem("markets_selection_top30", JSON.stringify(this.selected));
+        this.syncSelectedToCards();
+        this.fetchPrices();
+        this.loadCharts();
+      },
+
+      syncSelectedToCards(){
+        const map = {};
+        this.topList.forEach(o=> map[o.key]=o);
+        this.cards = this.selected.map(k => {
+          const o = map[k] || { key:k, label:k, tv_symbol:"", type:"crypto" };
+          return { key:o.key, label:o.label, tv_symbol:o.tv_symbol, type:o.type };
         });
-      }, 250);
+      },
+
+      // Actualiza cada 15 s
+      startUpdates(){
+        if(this.updateInterval) clearInterval(this.updateInterval);
+        this.updateInterval = setInterval(this.fetchPrices, 15000);
+      },
+      stopUpdates(){
+        if(this.updateInterval){ clearInterval(this.updateInterval); this.updateInterval=null; }
+      },
+
+      async fetchPrices(){
+        // 1) Intenta backend: /market-prices?keys=...
+        const tryBackend = async () => {
+          const qs = encodeURIComponent(this.cards.map(c=>c.key).join(","));
+          const r = await fetch(`${API_URL}/market-prices?keys=${qs}`);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const { items } = await r.json();
+          // items: [{ key, price_usd }]
+          const idx = {}; (items||[]).forEach(it=> idx[it.key]=it.price_usd);
+          return this.cards.map(c => ({ key: c.key, usd: idx[c.key] ?? null }));
+        };
+
+        // 2) Fallback: Binance para símbolos cripto *USDT
+        const tryBinance = async () => {
+          const symList = this.cards
+            .map(c => c.key)
+            .filter(k => /^[A-Z0-9]+USDT$/.test(k)); // solo cripto/USDT
+
+          if (symList.length === 0) {
+            // Nada compatible con Binance -> N/A
+            return this.cards.map(c => ({ key: c.key, usd: null }));
+          }
+
+          const url = `https://api.binance.com/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(symList))}`;
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`Binance HTTP ${r.status}`);
+          const arr = await r.json(); // [{symbol, price}]
+          const map = {}; arr.forEach(it => map[it.symbol] = Number(it.price));
+          return this.cards.map(c => ({ key: c.key, usd: map[c.key] ?? null }));
+        };
+
+        try{
+          const list = await tryBackend().catch(tryBinance);
+
+          // Guardar previos
+          this.prevNumeric = this.prices.map(p => this.getNumeric(p));
+
+          // Formatear precios en orden de cards
+          this.prices = list.map(({usd}) => {
+            if(usd==null) return "N/A";
+            const frac = usd<0.1 ? 6 : (usd<1 ? 4 : 2);
+            return Number(usd).toLocaleString("en-US",{ style:"currency", currency:"USD", minimumFractionDigits:frac, maximumFractionDigits:frac });
+          });
+
+          // Direcciones
+          this.priceDirections = this.prices.map((_,i)=>{
+            const current = this.getNumeric(this.prices[i]);
+            const prev    = this.prevNumeric[i];
+            if(prev==null||current==null) return null;
+            return current>prev ? "up" : (current<prev ? "down" : null);
+          });
+
+          this.lastUpdate = new Date();
+          setTimeout(()=>{ this.priceDirections=[null,null,null]; }, 1500);
+        }catch(e){
+          console.error("fetchPrices", e);
+          // deja "N/A" si todo falló
+        }
+      },
+
+      getNumeric(p){ if(p==="Cargando..."||p==="N/A") return null; return parseFloat(String(p).replace(/[$,]/g,"")); },
+      displayPrice(p){ return p; },
+
+      loadCharts(){
+        setTimeout(()=>{
+          this.cards.forEach((c,i)=>{
+            const id = `chart_${i}`;
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.innerHTML = "";
+            try{
+              new TradingView.widget({
+                container_id: id,
+                symbol: c.tv_symbol || "BINANCE:BTCUSDT",
+                interval: "1",
+                timezone: "Etc/UTC",
+                theme: "dark",
+                style: "1",
+                locale: "es",
+                withdateranges: true,
+                allow_symbol_change: true,
+                save_image: false,
+                width: "100%",
+                height: 400,
+                autosize: false,
+                hide_volume: false,
+                studies: [],
+                show_popup_button: true,
+                popup_width: "1000",
+                popup_height: "650",
+              });
+            }catch(e){
+              el.innerHTML = `<div style="display:flex;justify-content:center;align-items:center;height:400px;background:#1E2029;color:white;border-radius:8px;">
+                <div style="text-align:center;padding:20px;">
+                  <h3>Error al cargar el gráfico</h3>
+                  <p>Intenta recargar la página</p>
+                </div>
+              </div>`;
+            }
+          });
+        }, 250);
+      },
     },
-  },
-  mounted(){ this.checkLoginStatus(); },
-  beforeUnmount(){ this.stopUpdates(); }
-}).mount("#app");
+    mounted(){ this.checkLoginStatus(); },
+    beforeUnmount(){ this.stopUpdates(); }
+  }).mount("#app");
 </script>
 </body>
 </html>
-
