@@ -7,11 +7,6 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Tu API y frontend están en el mismo dominio: https://orumgs.onrender.com -->
-  <!-- No necesitas CORE_API_URL extra -->
-
-  <script defer src="script.js?v=binance1"></script>
 </head>
 <body class="bg-gray-100">
   <div id="app">
@@ -56,12 +51,15 @@
 
         <!-- Panel de precios -->
         <section class="rounded-lg shadow-lg bg-gradient-to-br from-blue-700 to-blue-500 text-white p-6">
-          <h3 class="text-2xl font-bold mb-6">Nuestras Principales Criptomonedas</h3>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-2xl font-bold">Nuestras Principales Criptomonedas</h3>
+            <div class="text-sm opacity-80" v-if="lastUpdated">Act.: {{ formatTime(lastUpdated) }}</div>
+          </div>
 
           <div class="flex items-center justify-between py-4 border-b border-blue-300/40">
             <div class="font-semibold">Bitcoin (BTC)</div>
             <div class="price-container" :class="{'price-up': priceDirections.bitcoin === 'up', 'price-down': priceDirections.bitcoin === 'down'}">
-              <span class="text-lg">{{ prices.bitcoin }}</span>
+              <span class="text-lg">{{ display(prices.bitcoin) }}</span>
               <span v-if="priceDirections.bitcoin === 'up'" class="ml-2">↑</span>
               <span v-if="priceDirections.bitcoin === 'down'" class="ml-2">↓</span>
             </div>
@@ -70,7 +68,7 @@
           <div class="flex items-center justify-between py-4 border-b border-blue-300/40">
             <div class="font-semibold">Ethereum (ETH)</div>
             <div class="price-container" :class="{'price-up': priceDirections.ethereum === 'up', 'price-down': priceDirections.ethereum === 'down'}">
-              <span class="text-lg">{{ prices.ethereum }}</span>
+              <span class="text-lg">{{ display(prices.ethereum) }}</span>
               <span v-if="priceDirections.ethereum === 'up'" class="ml-2">↑</span>
               <span v-if="priceDirections.ethereum === 'down'" class="ml-2">↓</span>
             </div>
@@ -79,31 +77,85 @@
           <div class="flex items-center justify-between py-4">
             <div class="font-semibold">Dogecoin (DOGE)</div>
             <div class="price-container" :class="{'price-up': priceDirections.dogecoin === 'up', 'price-down': priceDirections.dogecoin === 'down'}">
-              <span class="text-lg">{{ prices.dogecoin }}</span>
+              <span class="text-lg">{{ display(prices.dogecoin) }}</span>
               <span v-if="priceDirections.dogecoin === 'up'" class="ml-2">↑</span>
               <span v-if="priceDirections.dogecoin === 'down'" class="ml-2">↓</span>
             </div>
+          </div>
+
+          <div v-if="errorMsg" class="mt-4 text-sm bg-white/15 rounded px-3 py-2">
+            ⚠️ {{ errorMsg }}
           </div>
         </section>
       </div>
     </main>
   </div>
 
-  <!-- Debug helper -->
+  <!-- App -->
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        if (!window.__APP_OK__) {
-          console.error("Vue no montó: revisa errores en la consola (script o CORS).");
-          const el = document.createElement('div');
-          el.style.cssText = "position:fixed;top:8px;left:8px;background:#fee; color:#900; padding:10px 14px; border:1px solid #f00; z-index:9999; border-radius:8px;";
-          el.textContent = "⚠️ Vue no montó. Abre la consola (F12) para ver el error.";
-          document.body.appendChild(el);
-          setTimeout(()=>el.remove(), 6000);
+  const { createApp } = Vue;
+
+  createApp({
+    data() {
+      return {
+        userRole: localStorage.getItem('userRole') || 'Dueño',
+        prices: { bitcoin: null, ethereum: null, dogecoin: null },
+        prev:   { bitcoin: null, ethereum: null, dogecoin: null },
+        priceDirections: { bitcoin: null, ethereum: null, dogecoin: null },
+        lastUpdated: null,
+        errorMsg: ""
+      };
+    },
+    mounted() {
+      window.__APP_OK__ = true;
+      this.fetchOnce();
+      // Poll cada 60s (el servidor cachea 60s, no gasta créditos)
+      setInterval(this.fetchOnce, 60000);
+    },
+    methods: {
+      logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        window.location.href = 'index.html';
+      },
+      async fetchOnce() {
+        try {
+          this.errorMsg = "";
+          const r = await fetch('/crypto-prices', { cache: 'no-store' });
+          if (!r.ok) throw new Error('HTTP '+r.status);
+          const j = await r.json();
+          // actualizar direcciones ↑ ↓
+          this.setPrice('bitcoin',  j?.bitcoin?.usd);
+          this.setPrice('ethereum', j?.ethereum?.usd);
+          this.setPrice('dogecoin', j?.dogecoin?.usd);
+          this.lastUpdated = j?.updatedAt || Date.now();
+        } catch (e) {
+          console.error('fetch /crypto-prices', e);
+          this.errorMsg = 'No se pudo actualizar precios. Reintentando en 60s.';
         }
-      }, 200);
-    });
+      },
+      setPrice(key, val) {
+        if (typeof val === 'number' && isFinite(val)) {
+          const prev = this.prices[key];
+          this.prev[key] = prev;
+          this.prices[key] = val;
+          if (typeof prev === 'number') {
+            this.priceDirections[key] = val > prev ? 'up' : val < prev ? 'down' : null;
+          }
+        }
+      },
+      display(v) {
+        if (typeof v !== 'number' || !isFinite(v)) return 'Cargando...';
+        // formato amigable: BTC/ETH 2 dec; DOGE 4 dec
+        const decimals = (v < 1) ? 6 : 2;
+        return '$ ' + v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      },
+      formatTime(ts) {
+        const d = new Date(ts);
+        return d.toLocaleTimeString();
+      }
+    }
+  }).mount('#app');
   </script>
 </body>
 </html>
-
