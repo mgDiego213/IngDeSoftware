@@ -368,6 +368,13 @@ app.get("/market-prices", async (req, res) => {
 
     // Llamada batch a Twelve Data
     const tdMap = await tdBatchPrices([...new Set(tdSymbols)]);
+      // LOG: qué devolvió Twelve Data por símbolo pedido
+      for (const sym of [...new Set(tdSymbols)]) {
+        const v = tdMap[sym];
+        if (!(typeof v === "number" && isFinite(v))) {
+          console.warn(`[TwelveData][WARN] market-prices: símbolo=${sym} sin precio. value=`, v);
+        }
+      }
 
     // Respuesta en el mismo orden pedido
     const items = reqItems.map(it => {
@@ -405,12 +412,20 @@ app.get("/crypto-prices", async (_req, res) => {
       return res.json(hit.data);
     }
 
+    // usar USD para compatibilidad
     const map = {
-      bitcoin:  "BTC/USDT",
-      ethereum: "ETH/USDT",
-      dogecoin: "DOGE/USDT",
+      bitcoin:  "BTC/USD",
+      ethereum: "ETH/USD",
+      dogecoin: "DOGE/USD",
     };
     const tdMap = await tdBatchPrices(Object.values(map));
+
+    // logging fino por símbolo
+    for (const [sym, price] of Object.entries(tdMap)) {
+      if (!(typeof price === "number" && isFinite(price))) {
+        console.warn(`[TwelveData][WARN] símbolo=${sym} sin precio numérico. payload=`, tdMap[sym]);
+      }
+    }
 
     const pBTC  = Number(tdMap[map.bitcoin]);
     const pETH  = Number(tdMap[map.ethereum]);
@@ -423,6 +438,15 @@ app.get("/crypto-prices", async (_req, res) => {
       updatedAt: Date.now()
     };
 
+    // si todo vino null, log explícito
+    if (![pBTC, pETH, pDOGE].some(Number.isFinite)) {
+      console.warn("[TwelveData][WARN] /crypto-prices: tdMap sin precios válidos:", tdMap);
+    } else {
+      console.log("[TwelveData] /crypto-prices OK:", {
+        BTC: payload.bitcoin.usd, ETH: payload.ethereum.usd, DOGE: payload.dogecoin.usd
+      });
+    }
+
     marketCache.set(cacheKey, { t: now, data: payload });
     res.json(payload);
   } catch (e) {
@@ -430,6 +454,7 @@ app.get("/crypto-prices", async (_req, res) => {
     res.status(502).json({ message: "Error obteniendo precios" });
   }
 });
+
 
 
 /* ============================
@@ -513,5 +538,6 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
    ============================ */
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+
 
 
