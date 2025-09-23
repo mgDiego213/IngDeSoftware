@@ -107,11 +107,12 @@
       };
     },
     mounted() {
-      window.__APP_OK__ = true;
-      this.fetchOnce();
-      // Poll cada 60s (el servidor cachea 60s, no gasta créditos)
-      setInterval(this.fetchOnce, 60000);
-    },
+  window.__APP_OK__ = true;
+  this.fetchOnce();
+  // ✅ usa función flecha para NO perder "this"
+  setInterval(() => this.fetchOnce(), 60000);
+},
+
     methods: {
       logout() {
         localStorage.removeItem('token');
@@ -159,3 +160,4 @@
   </script>
 </body>
 </html>
+
