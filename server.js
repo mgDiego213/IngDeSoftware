@@ -395,8 +395,16 @@ app.get("/market-prices", async (req, res) => {
  * - Shape: { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
  * - Fuente: Twelve Data (BTC/USDT, ETH/USDT, DOGE/USDT)
  */
+// === /crypto-prices (Twelve Data) con micro-cache de 60s ===
 app.get("/crypto-prices", async (_req, res) => {
   try {
+    const cacheKey = "crypto-dashboard";
+    const now = Date.now();
+    const hit = marketCache.get(cacheKey);
+    if (hit && now - hit.t < CACHE_TTL_MS) {
+      return res.json(hit.data);
+    }
+
     const map = {
       bitcoin:  "BTC/USDT",
       ethereum: "ETH/USDT",
@@ -408,16 +416,21 @@ app.get("/crypto-prices", async (_req, res) => {
     const pETH  = Number(tdMap[map.ethereum]);
     const pDOGE = Number(tdMap[map.dogecoin]);
 
-    res.json({
+    const payload = {
       bitcoin:  { usd: Number.isFinite(pBTC)  ? pBTC  : null },
       ethereum: { usd: Number.isFinite(pETH)  ? pETH  : null },
       dogecoin: { usd: Number.isFinite(pDOGE) ? pDOGE : null },
-    });
+      updatedAt: Date.now()
+    };
+
+    marketCache.set(cacheKey, { t: now, data: payload });
+    res.json(payload);
   } catch (e) {
     console.error("/crypto-prices (TD) error:", e?.message);
     res.status(502).json({ message: "Error obteniendo precios" });
   }
 });
+
 
 /* ============================
    Debug providers (útil para ver bloqueos)
@@ -500,3 +513,4 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
    ============================ */
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+
