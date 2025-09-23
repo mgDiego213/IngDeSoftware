@@ -1,5 +1,5 @@
 // ------------------------
-// server.js (OrumGS)
+// server.js (OrumGS) — Twelve Data only
 // ------------------------
 require("dotenv").config();
 const express = require("express");
@@ -196,25 +196,25 @@ app.post("/auth/reset-password", async (req, res) => {
    Top 30 (Solo Crypto + Forex)
    ============================ */
 const TOP30 = [
-  // CRYPTO (BINANCE · USDT)
-  { key:"BTCUSDT", type:"crypto", label:"BTCUSDT (Bitcoin)",        tv_symbol:"BINANCE:BTCUSDT", cg_id:"bitcoin" },
-  { key:"ETHUSDT", type:"crypto", label:"ETHUSDT (Ethereum)",       tv_symbol:"BINANCE:ETHUSDT", cg_id:"ethereum" },
-  { key:"BNBUSDT", type:"crypto", label:"BNBUSDT (BNB)",            tv_symbol:"BINANCE:BNBUSDT", cg_id:"binancecoin" },
-  { key:"SOLUSDT", type:"crypto", label:"SOLUSDT (Solana)",         tv_symbol:"BINANCE:SOLUSDT", cg_id:"solana" },
-  { key:"XRPUSDT", type:"crypto", label:"XRPUSDT (XRP)",            tv_symbol:"BINANCE:XRPUSDT", cg_id:"ripple" },
-  { key:"ADAUSDT", type:"crypto", label:"ADAUSDT (Cardano)",        tv_symbol:"BINANCE:ADAUSDT", cg_id:"cardano" },
-  { key:"DOGEUSDT",type:"crypto", label:"DOGEUSDT (Dogecoin)",      tv_symbol:"BINANCE:DOGEUSDT",cg_id:"dogecoin" },
-  { key:"AVAXUSDT",type:"crypto", label:"AVAXUSDT (Avalanche)",     tv_symbol:"BINANCE:AVAXUSDT",cg_id:"avalanche-2" },
-  { key:"TRXUSDT", type:"crypto", label:"TRXUSDT (TRON)",           tv_symbol:"BINANCE:TRXUSDT", cg_id:"tron" },
-  { key:"TONUSDT", type:"crypto", label:"TONUSDT (TON)",            tv_symbol:"BINANCE:TONUSDT", cg_id:"the-open-network" },
-  { key:"LINKUSDT",type:"crypto", label:"LINKUSDT (Chainlink)",     tv_symbol:"BINANCE:LINKUSDT",cg_id:"chainlink" },
-  { key:"MATICUSDT",type:"crypto",label:"MATICUSDT (Polygon)",      tv_symbol:"BINANCE:MATICUSDT",cg_id:"matic-network" },
-  { key:"DOTUSDT", type:"crypto", label:"DOTUSDT (Polkadot)",       tv_symbol:"BINANCE:DOTUSDT", cg_id:"polkadot" },
-  { key:"LTCUSDT", type:"crypto", label:"LTCUSDT (Litecoin)",       tv_symbol:"BINANCE:LTCUSDT", cg_id:"litecoin" },
-  { key:"BCHUSDT", type:"crypto", label:"BCHUSDT (Bitcoin Cash)",   tv_symbol:"BINANCE:BCHUSDT", cg_id:"bitcoin-cash" },
-  { key:"ATOMUSDT",type:"crypto", label:"ATOMUSDT (Cosmos)",        tv_symbol:"BINANCE:ATOMUSDT",cg_id:"cosmos" },
-  { key:"ARBUSDT", type:"crypto", label:"ARBUSDT (Arbitrum)",       tv_symbol:"BINANCE:ARBUSDT", cg_id:"arbitrum" },
-  { key:"OPUSDT",  type:"crypto", label:"OPUSDT (Optimism)",        tv_symbol:"BINANCE:OPUSDT",  cg_id:"optimism" },
+  // CRYPTO (pares vs USDT)
+  { key:"BTCUSDT", type:"crypto", label:"BTCUSDT (Bitcoin)",        tv_symbol:"BINANCE:BTCUSDT" },
+  { key:"ETHUSDT", type:"crypto", label:"ETHUSDT (Ethereum)",       tv_symbol:"BINANCE:ETHUSDT" },
+  { key:"BNBUSDT", type:"crypto", label:"BNBUSDT (BNB)",            tv_symbol:"BINANCE:BNBUSDT" },
+  { key:"SOLUSDT", type:"crypto", label:"SOLUSDT (Solana)",         tv_symbol:"BINANCE:SOLUSDT" },
+  { key:"XRPUSDT", type:"crypto", label:"XRPUSDT (XRP)",            tv_symbol:"BINANCE:XRPUSDT" },
+  { key:"ADAUSDT", type:"crypto", label:"ADAUSDT (Cardano)",        tv_symbol:"BINANCE:ADAUSDT" },
+  { key:"DOGEUSDT",type:"crypto", label:"DOGEUSDT (Dogecoin)",      tv_symbol:"BINANCE:DOGEUSDT"},
+  { key:"AVAXUSDT",type:"crypto", label:"AVAXUSDT (Avalanche)",     tv_symbol:"BINANCE:AVAXUSDT"},
+  { key:"TRXUSDT", type:"crypto", label:"TRXUSDT (TRON)",           tv_symbol:"BINANCE:TRXUSDT" },
+  { key:"TONUSDT", type:"crypto", label:"TONUSDT (TON)",            tv_symbol:"BINANCE:TONUSDT" },
+  { key:"LINKUSDT",type:"crypto", label:"LINKUSDT (Chainlink)",     tv_symbol:"BINANCE:LINKUSDT"},
+  { key:"MATICUSDT",type:"crypto",label:"MATICUSDT (Polygon)",      tv_symbol:"BINANCE:MATICUSDT"},
+  { key:"DOTUSDT", type:"crypto", label:"DOTUSDT (Polkadot)",       tv_symbol:"BINANCE:DOTUSDT" },
+  { key:"LTCUSDT", type:"crypto", label:"LTCUSDT (Litecoin)",       tv_symbol:"BINANCE:LTCUSDT" },
+  { key:"BCHUSDT", type:"crypto", label:"BCHUSDT (Bitcoin Cash)",   tv_symbol:"BINANCE:BCHUSDT" },
+  { key:"ATOMUSDT",type:"crypto", label:"ATOMUSDT (Cosmos)",        tv_symbol:"BINANCE:ATOMUSDT"},
+  { key:"ARBUSDT", type:"crypto", label:"ARBUSDT (Arbitrum)",       tv_symbol:"BINANCE:ARBUSDT" },
+  { key:"OPUSDT",  type:"crypto", label:"OPUSDT (Optimism)",        tv_symbol:"BINANCE:OPUSDT"  },
 
   // FOREX
   { key:"EURUSD", type:"forex", label:"EURUSD", tv_symbol:"FX:EURUSD", fx:{base:"EUR",quote:"USD"} },
@@ -230,57 +230,21 @@ const TOP30 = [
 app.get("/top30-list", (_req, res) => res.json(TOP30));
 
 /* ============================
-   Micro-cache en memoria
+   Cache y Config
    ============================ */
 const marketCache = new Map(); // "keys=BTCUSDT,EURUSD" -> { t, data }
-const CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS || "60000", 10);
+const CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS || "60000", 10); // 60s
 
 /* ============================
-   (heredados) Helpers externos/básicos
-   ============================ */
-// Precio spot desde Binance "BTCUSDT", "ETHUSDT", ...
-async function getBinancePrice(symbol) {
-  try {
-    const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}`;
-    const { data } = await axios.get(url, { timeout: 8000 });
-    const p = parseFloat(data?.price);
-    return Number.isFinite(p) ? p : null;
-  } catch (e) {
-    console.error("Binance price error", symbol, e?.response?.status || e.message);
-    return null;
-  }
-}
-// Fallback para FOREX usando exchangerate.host (USD por 1 unidad del par)
-async function getFX_USD(pair) {
-  try {
-    const base = pair.slice(0,3);
-    const quote = pair.slice(3,6);
-    if (quote === 'USD') {
-      const { data } = await axios.get(
-        `https://api.exchangerate.host/latest?base=${base}&symbols=USD`,
-        { timeout: 10000 }
-      );
-      const v = data?.rates?.USD;
-      return Number.isFinite(v) ? v : null;
-    }
-    if (base === 'USD') {
-      const { data } = await axios.get(
-        `https://api.exchangerate.host/latest?base=USD&symbols=${quote}`,
-        { timeout: 10000 }
-      );
-      const q = data?.rates?.[quote];
-      return Number.isFinite(q) ? (1 / q) : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/* ============================
-   TWELVE DATA (CRIPTO + FOREX)
+   TWELVE DATA — Config + Helpers + Logging
    ============================ */
 const TWELVE_API_KEY = (process.env.TWELVE_API_KEY || "").trim();
+if (!TWELVE_API_KEY) {
+  console.warn("[TwelveData] TWELVE_API_KEY no está definido. Los precios responderán null.");
+} else {
+  console.log("[TwelveData] API key cargada:", TWELVE_API_KEY.slice(0, 3) + "..." + TWELVE_API_KEY.slice(-3));
+}
+console.log("[Market] CACHE_TTL_MS:", CACHE_TTL_MS, "ms");
 
 // Mapa de tus keys -> símbolo Twelve Data
 const TD_SYMBOL_MAP = {
@@ -314,15 +278,45 @@ const TD_SYMBOL_MAP = {
   "GBPJPY": "GBP/JPY",
 };
 
-// Llama Twelve Data /price en batch
+// Cliente axios con logging explícito
+const tdClient = axios.create({
+  baseURL: "https://api.twelvedata.com",
+  timeout: 15000,
+  // dejamos validateStatus por defecto; manejamos errores en catch
+});
+
+// Log centralizado de errores/bloqueos
+function logTwelveError(ctx, err) {
+  const code = err?.response?.status || err?.code || "UNKNOWN";
+  const data = err?.response?.data;
+  const headers = err?.response?.headers || {};
+  const limit = headers["x-ratelimit-limit"] || headers["rate-limit-limit"];
+  const remaining = headers["x-ratelimit-remaining"] || headers["rate-limit-remaining"];
+  const reset = headers["x-ratelimit-reset"] || headers["rate-limit-reset"];
+  const msg = (data && (data.message || data.note || JSON.stringify(data))) || err?.message || String(err);
+
+  const isBlocked = [401, 402, 403, 429].includes(Number(code));
+  const tag = isBlocked ? "BLOCKED" : "ERROR";
+
+  console.error(`[TwelveData][${tag}] ctx=${ctx} status=${code} msg=${msg} ` +
+    (limit || remaining || reset ? `rate{limit=${limit} remaining=${remaining} reset=${reset}}` : ""));
+}
+
+// Batch de precios: /price?symbol=A,B,C
 async function tdBatchPrices(symbols) {
   if (!symbols.length || !TWELVE_API_KEY) return {};
-  const url = new URL("https://api.twelvedata.com/price");
-  url.searchParams.set("symbol", symbols.join(","));
-  url.searchParams.set("apikey", TWELVE_API_KEY);
-
   try {
-    const { data } = await axios.get(url.toString(), { timeout: 15000 });
+    const url = `/price?symbol=${encodeURIComponent(symbols.join(","))}&apikey=${TWELVE_API_KEY}`;
+    const res = await tdClient.get(url);
+    const data = res.data;
+
+    // Si Twelve Data devolvió error estructurado
+    if (data && data.code && data.message) {
+      logTwelveError("price-batch(payload)", { response: { status: data.code, data } });
+      return {};
+    }
+
+    // Normaliza respuesta a objeto {symbol: price}
     const out = {};
     if (Array.isArray(data)) {
       for (const row of data) {
@@ -336,48 +330,9 @@ async function tdBatchPrices(symbols) {
       }
     }
     return out;
-  } catch (e) {
-    console.error("[twelveData] batch error:", e?.response?.status || e?.message);
+  } catch (err) {
+    logTwelveError("price-batch(request)", err);
     return {};
-  }
-}
-
-/* ============================
-   (heredados) FINNHUB HELPERS — no usados ahora
-   ============================ */
-const FINNHUB_API_KEY =
-  process.env.FINNHUB_API_KEY ||
-  "d38s4c1r01qthpo1867gd38s4c1r01qthpo18680";
-const FINNHUB_HTTP_TIMEOUT = 15000;
-async function finnhubCryptoLast(symbolFinnhub) {
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 300;
-    const url = `https://finnhub.io/api/v1/crypto/candle?symbol=${encodeURIComponent(
-      symbolFinnhub
-    )}&resolution=1&from=${from}&to=${now}&token=${FINNHUB_API_KEY}`;
-    const { data } = await axios.get(url, { timeout: FINNHUB_HTTP_TIMEOUT });
-    if (data?.s !== "ok" || !Array.isArray(data?.c) || data.c.length === 0) return null;
-    const last = Number(data.c[data.c.length - 1]);
-    return Number.isFinite(last) ? last : null;
-  } catch {
-    return null;
-  }
-}
-async function finnhubForexLast(base, quote, provider = "OANDA") {
-  try {
-    const symbol = provider === "OANDA" ? `OANDA:${base}_${quote}` : `FX:${base}${quote}`;
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 300;
-    const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(
-      symbol
-    )}&resolution=1&from=${from}&to=${now}&token=${FINNHUB_API_KEY}`;
-    const { data } = await axios.get(url, { timeout: FINNHUB_HTTP_TIMEOUT });
-    if (data?.s !== "ok" || !Array.isArray(data?.c) || data.c.length === 0) return null;
-    const last = Number(data.c[data.c.length - 1]);
-    return Number.isFinite(last) ? last : null;
-  } catch {
-    return null;
   }
 }
 
@@ -387,8 +342,7 @@ async function finnhubForexLast(base, quote, provider = "OANDA") {
 /**
  * GET /market-prices?keys=BTCUSDT,EURUSD
  * Respuesta: { items: [{ key, type, label, price_usd }] }
- * - CRYPTO + FOREX: Twelve Data (batch)
- * - Cache TTL: 60s
+ * Fuente: Twelve Data (batch) · Cache TTL: 60s
  */
 app.get("/market-prices", async (req, res) => {
   try {
@@ -438,7 +392,7 @@ app.get("/market-prices", async (req, res) => {
 
 /**
  * GET /crypto-prices
- * - Mantiene el "shape" { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
+ * - Shape: { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
  * - Fuente: Twelve Data (BTC/USDT, ETH/USDT, DOGE/USDT)
  */
 app.get("/crypto-prices", async (_req, res) => {
@@ -462,6 +416,23 @@ app.get("/crypto-prices", async (_req, res) => {
   } catch (e) {
     console.error("/crypto-prices (TD) error:", e?.message);
     res.status(502).json({ message: "Error obteniendo precios" });
+  }
+});
+
+/* ============================
+   Debug providers (útil para ver bloqueos)
+   ============================ */
+app.get("/debug/twelve", async (_req, res) => {
+  try {
+    const syms = ["BTC/USDT", "ETH/USDT", "EUR/USD", "USD/JPY"];
+    const out = await tdBatchPrices(syms);
+    res.json({
+      apikey_preview: TWELVE_API_KEY ? (TWELVE_API_KEY.slice(0,3)+"..."+TWELVE_API_KEY.slice(-3)) : null,
+      symbols: syms,
+      prices: out
+    });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
   }
 });
 
