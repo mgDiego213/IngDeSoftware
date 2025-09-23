@@ -249,24 +249,24 @@ console.log("[Market] CACHE_TTL_MS:", CACHE_TTL_MS, "ms");
 // Mapa de tus keys -> símbolo Twelve Data
 const TD_SYMBOL_MAP = {
   // CRYPTO
-  "BTCUSDT": "BTC/USDT",
-  "ETHUSDT": "ETH/USDT",
-  "BNBUSDT": "BNB/USDT",
-  "SOLUSDT": "SOL/USDT",
-  "XRPUSDT": "XRP/USDT",
-  "ADAUSDT": "ADA/USDT",
-  "DOGEUSDT":"DOGE/USDT",
-  "AVAXUSDT":"AVAX/USDT",
-  "TRXUSDT": "TRX/USDT",
-  "TONUSDT": "TON/USDT",
-  "LINKUSDT":"LINK/USDT",
-  "MATICUSDT":"MATIC/USDT",
-  "DOTUSDT": "DOT/USDT",
-  "LTCUSDT": "LTC/USDT",
-  "BCHUSDT": "BCH/USDT",
-  "ATOMUSDT":"ATOM/USDT",
-  "ARBUSDT": "ARB/USDT",
-  "OPUSDT":  "OP/USDT",
+  "BTCUSDT": "BTC/USD",
+  "ETHUSDT": "ETH/USD",
+  "BNBUSDT": "BNB/USD",
+  "SOLUSDT": "SOL/USD",
+  "XRPUSDT": "XRP/USD",
+  "ADAUSDT": "ADA/USD",
+  "DOGEUSDT":"DOGE/USD",
+  "AVAXUSDT":"AVAX/USD",
+  "TRXUSDT": "TRX/USD",
+  "TONUSDT": "TON/USD",
+  "LINKUSDT":"LINK/USD",
+  "MATICUSDT":"MATIC/USD",
+  "DOTUSDT": "DOT/USD",
+  "LTCUSDT": "LTC/USD",
+  "BCHUSDT": "BCH/USD",
+  "ATOMUSDT":"ATOM/USD",
+  "ARBUSDT": "ARB/USD",
+  "OPUSDT":  "OP/USD",
   // FOREX
   "EURUSD": "EUR/USD",
   "USDJPY": "USD/JPY",
@@ -513,4 +513,5 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
    ============================ */
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+
 
