@@ -1,5 +1,5 @@
 // ------------------------
-// server.js (OrumGS) — Twelve Data only
+// server.js (OrumGS) — Twelve Data only + RSI
 // ------------------------
 require("dotenv").config();
 const express = require("express");
@@ -193,44 +193,39 @@ app.post("/auth/reset-password", async (req, res) => {
 });
 
 /* ============================
-   Top 30 (Solo Crypto + Forex)
+   Top 20 (Cripto + Forex)
    ============================ */
-const TOP30 = [
-  // CRYPTO (pares vs USDT)
-  { key:"BTCUSDT", type:"crypto", label:"BTCUSDT (Bitcoin)",        tv_symbol:"BINANCE:BTCUSDT" },
-  { key:"ETHUSDT", type:"crypto", label:"ETHUSDT (Ethereum)",       tv_symbol:"BINANCE:ETHUSDT" },
-  { key:"BNBUSDT", type:"crypto", label:"BNBUSDT (BNB)",            tv_symbol:"BINANCE:BNBUSDT" },
-  { key:"SOLUSDT", type:"crypto", label:"SOLUSDT (Solana)",         tv_symbol:"BINANCE:SOLUSDT" },
-  { key:"XRPUSDT", type:"crypto", label:"XRPUSDT (XRP)",            tv_symbol:"BINANCE:XRPUSDT" },
-  { key:"ADAUSDT", type:"crypto", label:"ADAUSDT (Cardano)",        tv_symbol:"BINANCE:ADAUSDT" },
-  { key:"DOGEUSDT",type:"crypto", label:"DOGEUSDT (Dogecoin)",      tv_symbol:"BINANCE:DOGEUSDT"},
-  { key:"AVAXUSDT",type:"crypto", label:"AVAXUSDT (Avalanche)",     tv_symbol:"BINANCE:AVAXUSDT"},
-  { key:"TRXUSDT", type:"crypto", label:"TRXUSDT (TRON)",           tv_symbol:"BINANCE:TRXUSDT" },
-  { key:"TONUSDT", type:"crypto", label:"TONUSDT (TON)",            tv_symbol:"BINANCE:TONUSDT" },
-  { key:"LINKUSDT",type:"crypto", label:"LINKUSDT (Chainlink)",     tv_symbol:"BINANCE:LINKUSDT"},
-  { key:"MATICUSDT",type:"crypto",label:"MATICUSDT (Polygon)",      tv_symbol:"BINANCE:MATICUSDT"},
-  { key:"DOTUSDT", type:"crypto", label:"DOTUSDT (Polkadot)",       tv_symbol:"BINANCE:DOTUSDT" },
-  { key:"LTCUSDT", type:"crypto", label:"LTCUSDT (Litecoin)",       tv_symbol:"BINANCE:LTCUSDT" },
-  { key:"BCHUSDT", type:"crypto", label:"BCHUSDT (Bitcoin Cash)",   tv_symbol:"BINANCE:BCHUSDT" },
-  { key:"ATOMUSDT",type:"crypto", label:"ATOMUSDT (Cosmos)",        tv_symbol:"BINANCE:ATOMUSDT"},
-  { key:"ARBUSDT", type:"crypto", label:"ARBUSDT (Arbitrum)",       tv_symbol:"BINANCE:ARBUSDT" },
-  { key:"OPUSDT",  type:"crypto", label:"OPUSDT (Optimism)",        tv_symbol:"BINANCE:OPUSDT"  },
+const TOP20 = [
+  // CRYPTO (10) — claves estilo Binance pero mapeadas a */USD en Twelve Data
+  { key:"BTCUSDT",  type:"crypto", label:"BTCUSDT (Bitcoin)",        tv_symbol:"BINANCE:BTCUSDT" },
+  { key:"ETHUSDT",  type:"crypto", label:"ETHUSDT (Ethereum)",       tv_symbol:"BINANCE:ETHUSDT" },
+  { key:"BNBUSDT",  type:"crypto", label:"BNBUSDT (BNB)",            tv_symbol:"BINANCE:BNBUSDT" },
+  { key:"SOLUSDT",  type:"crypto", label:"SOLUSDT (Solana)",         tv_symbol:"BINANCE:SOLUSDT" },
+  { key:"XRPUSDT",  type:"crypto", label:"XRPUSDT (XRP)",            tv_symbol:"BINANCE:XRPUSDT" },
+  { key:"ADAUSDT",  type:"crypto", label:"ADAUSDT (Cardano)",        tv_symbol:"BINANCE:ADAUSDT" },
+  { key:"DOGEUSDT", type:"crypto", label:"DOGEUSDT (Dogecoin)",      tv_symbol:"BINANCE:DOGEUSDT"},
+  { key:"AVAXUSDT", type:"crypto", label:"AVAXUSDT (Avalanche)",     tv_symbol:"BINANCE:AVAXUSDT"},
+  { key:"MATICUSDT",type:"crypto", label:"MATICUSDT (Polygon)",      tv_symbol:"BINANCE:MATICUSDT"},
+  { key:"LINKUSDT", type:"crypto", label:"LINKUSDT (Chainlink)",     tv_symbol:"BINANCE:LINKUSDT"},
 
-  // FOREX
+  // FOREX (10)
   { key:"EURUSD", type:"forex", label:"EURUSD", tv_symbol:"FX:EURUSD", fx:{base:"EUR",quote:"USD"} },
   { key:"USDJPY", type:"forex", label:"USDJPY", tv_symbol:"FX:USDJPY", fx:{base:"USD",quote:"JPY"} },
   { key:"GBPUSD", type:"forex", label:"GBPUSD", tv_symbol:"FX:GBPUSD", fx:{base:"GBP",quote:"USD"} },
-  { key:"USDCHF", type:"forex", label:"USDCHF", tv_symbol:"FX:USDCHF", fx:{base:"USD",quote:"CHF"} },
   { key:"AUDUSD", type:"forex", label:"AUDUSD", tv_symbol:"FX:AUDUSD", fx:{base:"AUD",quote:"USD"} },
   { key:"USDCAD", type:"forex", label:"USDCAD", tv_symbol:"FX:USDCAD", fx:{base:"USD",quote:"CAD"} },
+  { key:"USDCHF", type:"forex", label:"USDCHF", tv_symbol:"FX:USDCHF", fx:{base:"USD",quote:"CHF"} },
+  { key:"NZDUSD", type:"forex", label:"NZDUSD", tv_symbol:"FX:NZDUSD", fx:{base:"NZD",quote:"USD"} },
   { key:"EURJPY", type:"forex", label:"EURJPY", tv_symbol:"FX:EURJPY", fx:{base:"EUR",quote:"JPY"} },
   { key:"GBPJPY", type:"forex", label:"GBPJPY", tv_symbol:"FX:GBPJPY", fx:{base:"GBP",quote:"JPY"} },
+  { key:"AUDJPY", type:"forex", label:"AUDJPY", tv_symbol:"FX:AUDJPY", fx:{base:"AUD",quote:"JPY"} },
 ];
 
-app.get("/top30-list", (_req, res) => res.json(TOP30));
+// Mantén el endpoint con el mismo nombre para no romper el front
+app.get("/top30-list", (_req, res) => res.json(TOP20));
 
 /* ============================
-   Cache y Config
+   Cache general
    ============================ */
 const marketCache = new Map(); // "keys=BTCUSDT,EURUSD" -> { t, data }
 const CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS || "60000", 10); // 60s
@@ -240,49 +235,43 @@ const CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS || "60000", 10); /
    ============================ */
 const TWELVE_API_KEY = (process.env.TWELVE_API_KEY || "").trim();
 if (!TWELVE_API_KEY) {
-  console.warn("[TwelveData] TWELVE_API_KEY no está definido. Los precios responderán null.");
+  console.warn("[TwelveData] TWELVE_API_KEY no está definido. Los precios/indicadores responderán null.");
 } else {
   console.log("[TwelveData] API key cargada:", TWELVE_API_KEY.slice(0, 3) + "..." + TWELVE_API_KEY.slice(-3));
 }
 console.log("[Market] CACHE_TTL_MS:", CACHE_TTL_MS, "ms");
 
-// Mapa de tus keys -> símbolo Twelve Data
+// Mapa de claves -> símbolo Twelve Data (cripto en USD para mejor cobertura)
 const TD_SYMBOL_MAP = {
   // CRYPTO
-  "BTCUSDT": "BTC/USD",
-  "ETHUSDT": "ETH/USD",
-  "BNBUSDT": "BNB/USD",
-  "SOLUSDT": "SOL/USD",
-  "XRPUSDT": "XRP/USD",
-  "ADAUSDT": "ADA/USD",
-  "DOGEUSDT":"DOGE/USD",
-  "AVAXUSDT":"AVAX/USD",
-  "TRXUSDT": "TRX/USD",
-  "TONUSDT": "TON/USD",
-  "LINKUSDT":"LINK/USD",
+  "BTCUSDT":  "BTC/USD",
+  "ETHUSDT":  "ETH/USD",
+  "BNBUSDT":  "BNB/USD",
+  "SOLUSDT":  "SOL/USD",
+  "XRPUSDT":  "XRP/USD",
+  "ADAUSDT":  "ADA/USD",
+  "DOGEUSDT": "DOGE/USD",
+  "AVAXUSDT": "AVAX/USD",
   "MATICUSDT":"MATIC/USD",
-  "DOTUSDT": "DOT/USD",
-  "LTCUSDT": "LTC/USD",
-  "BCHUSDT": "BCH/USD",
-  "ATOMUSDT":"ATOM/USD",
-  "ARBUSDT": "ARB/USD",
-  "OPUSDT":  "OP/USD",
+  "LINKUSDT": "LINK/USD",
+
   // FOREX
   "EURUSD": "EUR/USD",
   "USDJPY": "USD/JPY",
   "GBPUSD": "GBP/USD",
-  "USDCHF": "USD/CHF",
   "AUDUSD": "AUD/USD",
   "USDCAD": "USD/CAD",
+  "USDCHF": "USD/CHF",
+  "NZDUSD": "NZD/USD",
   "EURJPY": "EUR/JPY",
   "GBPJPY": "GBP/JPY",
+  "AUDJPY": "AUD/JPY",
 };
 
 // Cliente axios con logging explícito
 const tdClient = axios.create({
   baseURL: "https://api.twelvedata.com",
   timeout: 15000,
-  // dejamos validateStatus por defecto; manejamos errores en catch
 });
 
 // Log centralizado de errores/bloqueos
@@ -310,13 +299,11 @@ async function tdBatchPrices(symbols) {
     const res = await tdClient.get(url);
     const data = res.data;
 
-    // Si Twelve Data devolvió error estructurado
     if (data && data.code && data.message) {
       logTwelveError("price-batch(payload)", { response: { status: data.code, data } });
       return {};
     }
 
-    // Normaliza respuesta a objeto {symbol: price}
     const out = {};
     if (Array.isArray(data)) {
       for (const row of data) {
@@ -333,6 +320,39 @@ async function tdBatchPrices(symbols) {
   } catch (err) {
     logTwelveError("price-batch(request)", err);
     return {};
+  }
+}
+
+/* ============================
+   RSI (Twelve Data)
+   ============================ */
+const RSI_CACHE = new Map(); // key: query -> { t, data }
+const RSI_TTL_MS = parseInt(process.env.RSI_CACHE_TTL_MS || "60000", 10); // 60s
+
+async function tdRSI(symbol, { interval = "1min", period = 14 } = {}) {
+  if (!TWELVE_API_KEY) return null;
+  const url = `/rsi?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&time_period=${period}&outputsize=1&apikey=${TWELVE_API_KEY}`;
+  try {
+    const { data } = await tdClient.get(url);
+
+    // Posibles formatos
+    let rsiVal = null;
+    if (Array.isArray(data?.values) && data.values.length) {
+      const v = Number(data.values[0]?.rsi);
+      if (Number.isFinite(v)) rsiVal = v;
+    } else if (typeof data?.value === "number") {
+      rsiVal = data.value;
+    } else if (data?.code && data?.message) {
+      logTwelveError("rsi(payload)", { response: { status: data.code, data } });
+    }
+    if (!Number.isFinite(rsiVal)) {
+      console.warn(`[TwelveData][WARN] RSI sin valor para símbolo=${symbol}. payload=`, data);
+      return null;
+    }
+    return rsiVal;
+  } catch (err) {
+    logTwelveError("rsi(request)", err);
+    return null;
   }
 }
 
@@ -356,8 +376,8 @@ app.get("/market-prices", async (req, res) => {
     const now = Date.now();
     if (hit && now - hit.t < CACHE_TTL_MS) return res.json(hit.data);
 
-    // Normaliza contra TOP30 y arma lista de símbolos TD
-    const reqItems = keys.map(k => TOP30.find(x => x.key === k)).filter(Boolean);
+    // Normaliza contra TOP20 y arma lista de símbolos TD
+    const reqItems = keys.map(k => TOP20.find(x => x.key === k)).filter(Boolean);
     const tdSymbols = [];
     const keyToTd = {};
     for (const it of reqItems) {
@@ -368,13 +388,14 @@ app.get("/market-prices", async (req, res) => {
 
     // Llamada batch a Twelve Data
     const tdMap = await tdBatchPrices([...new Set(tdSymbols)]);
-      // LOG: qué devolvió Twelve Data por símbolo pedido
-      for (const sym of [...new Set(tdSymbols)]) {
-        const v = tdMap[sym];
-        if (!(typeof v === "number" && isFinite(v))) {
-          console.warn(`[TwelveData][WARN] market-prices: símbolo=${sym} sin precio. value=`, v);
-        }
+
+    // LOG por símbolo sin precio
+    for (const sym of [...new Set(tdSymbols)]) {
+      const v = tdMap[sym];
+      if (!(typeof v === "number" && isFinite(v))) {
+        console.warn(`[TwelveData][WARN] market-prices: símbolo=${sym} sin precio. value=`, v);
       }
+    }
 
     // Respuesta en el mismo orden pedido
     const items = reqItems.map(it => {
@@ -399,10 +420,9 @@ app.get("/market-prices", async (req, res) => {
 
 /**
  * GET /crypto-prices
- * - Shape: { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd} }
- * - Fuente: Twelve Data (BTC/USDT, ETH/USDT, DOGE/USDT)
+ * - Shape: { bitcoin:{usd}, ethereum:{usd}, dogecoin:{usd}, updatedAt }
+ * - Fuente: Twelve Data (BTC/USD, ETH/USD, DOGE/USD) con micro-cache 60s
  */
-// === /crypto-prices (Twelve Data) con micro-cache de 60s ===
 app.get("/crypto-prices", async (_req, res) => {
   try {
     const cacheKey = "crypto-dashboard";
@@ -412,7 +432,6 @@ app.get("/crypto-prices", async (_req, res) => {
       return res.json(hit.data);
     }
 
-    // usar USD para compatibilidad
     const map = {
       bitcoin:  "BTC/USD",
       ethereum: "ETH/USD",
@@ -420,10 +439,9 @@ app.get("/crypto-prices", async (_req, res) => {
     };
     const tdMap = await tdBatchPrices(Object.values(map));
 
-    // logging fino por símbolo
     for (const [sym, price] of Object.entries(tdMap)) {
       if (!(typeof price === "number" && isFinite(price))) {
-        console.warn(`[TwelveData][WARN] símbolo=${sym} sin precio numérico. payload=`, tdMap[sym]);
+        console.warn(`[TwelveData][WARN] crypto-dashboard: símbolo=${sym} sin precio. value=`, tdMap[sym]);
       }
     }
 
@@ -438,12 +456,12 @@ app.get("/crypto-prices", async (_req, res) => {
       updatedAt: Date.now()
     };
 
-    // si todo vino null, log explícito
     if (![pBTC, pETH, pDOGE].some(Number.isFinite)) {
       console.warn("[TwelveData][WARN] /crypto-prices: tdMap sin precios válidos:", tdMap);
     } else {
       console.log("[TwelveData] /crypto-prices OK:", {
-        BTC: payload.bitcoin.usd, ETH: payload.ethereum.usd, DOGE: payload.dogecoin.usd
+        BTC: payload.bitcoin.usd, ETH: payload.ethereum.usd, DOGE: payload.dogecoin.usd,
+        at: new Date(payload.updatedAt).toLocaleTimeString()
       });
     }
 
@@ -455,14 +473,50 @@ app.get("/crypto-prices", async (_req, res) => {
   }
 });
 
+/**
+ * GET /indicators/rsi?keys=BTCUSDT,ETHUSDT,EURUSD&interval=1min&period=14
+ * Respuesta: { items: [{ key, rsi, interval, period }], updatedAt }
+ */
+app.get("/indicators/rsi", async (req, res) => {
+  try {
+    const keys = String(req.query.keys || "")
+      .split(",").map(s => s.trim()).filter(Boolean);
+    if (!keys.length) return res.json({ items: [], updatedAt: Date.now() });
 
+    const interval = String(req.query.interval || "1min");
+    const period   = parseInt(req.query.period || "14", 10);
+
+    const cacheKey = `rsi:${interval}:${period}:` + keys.join(",");
+    const now = Date.now();
+    const hit = RSI_CACHE.get(cacheKey);
+    if (hit && now - hit.t < RSI_TTL_MS) return res.json(hit.data);
+
+    const items = [];
+    for (const k of keys) {
+      const tdSym = TD_SYMBOL_MAP[k];
+      if (!tdSym) {
+        items.push({ key: k, rsi: null, interval, period });
+        continue;
+      }
+      const rsi = await tdRSI(tdSym, { interval, period });
+      items.push({ key: k, rsi: Number.isFinite(rsi) ? rsi : null, interval, period });
+    }
+
+    const payload = { items, updatedAt: Date.now() };
+    RSI_CACHE.set(cacheKey, { t: now, data: payload });
+    res.json(payload);
+  } catch (e) {
+    console.error("/indicators/rsi error:", e?.message || e);
+    res.status(502).json({ items: [], updatedAt: Date.now() });
+  }
+});
 
 /* ============================
-   Debug providers (útil para ver bloqueos)
+   Debug endpoints (opcionales)
    ============================ */
 app.get("/debug/twelve", async (_req, res) => {
   try {
-    const syms = ["BTC/USDT", "ETH/USDT", "EUR/USD", "USD/JPY"];
+    const syms = ["BTC/USD", "ETH/USD", "EUR/USD", "USD/JPY"];
     const out = await tdBatchPrices(syms);
     res.json({
       apikey_preview: TWELVE_API_KEY ? (TWELVE_API_KEY.slice(0,3)+"..."+TWELVE_API_KEY.slice(-3)) : null,
@@ -470,6 +524,92 @@ app.get("/debug/twelve", async (_req, res) => {
       prices: out
     });
   } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
+  }
+});
+
+// Lista disponibilidad contra tu TOP20
+app.get("/debug/td-availability", async (req, res) => {
+  if (!TWELVE_API_KEY) return res.status(400).json({ error: "TWELVE_API_KEY no está configurado" });
+  const include = String(req.query.include || "all").toLowerCase();
+  const includeCrypto = include === "all" || include === "crypto";
+  const includeForex  = include === "all" || include === "forex";
+
+  const out = {
+    apikey_preview: TWELVE_API_KEY.slice(0,3)+"..."+TWELVE_API_KEY.slice(-3),
+    include: { crypto: includeCrypto, forex: includeForex },
+    crypto: { required: [], listed: [], available: [], missing: [] },
+    forex:  { required: [], listed: [], available: [], missing: [] },
+    prices_sample: {},
+    notes: []
+  };
+
+  try {
+    const requiredCrypto = Array.from(new Set(
+      TOP20.filter(x => x.type === "crypto").map(x => TD_SYMBOL_MAP[x.key]).filter(Boolean)
+    ));
+    const requiredForex = Array.from(new Set(
+      TOP20.filter(x => x.type === "forex").map(x => TD_SYMBOL_MAP[x.key]).filter(Boolean)
+    ));
+    out.crypto.required = requiredCrypto;
+    out.forex.required  = requiredForex;
+
+    let listedCrypto = [], listedForex = [];
+    if (includeCrypto) {
+      try {
+        const resp = await tdClient.get(`/cryptocurrencies?apikey=${TWELVE_API_KEY}`);
+        const arr = Array.isArray(resp.data?.data) ? resp.data.data
+                  : Array.isArray(resp.data?.symbols) ? resp.data.symbols : [];
+        listedCrypto = arr.map(r => (typeof r === "string" ? r : r?.symbol)).filter(Boolean);
+      } catch (err) {
+        logTwelveError("cryptocurrencies(list)", err);
+        out.notes.push("No se pudo listar cryptocurrencies; revisa logs.");
+      }
+    }
+    if (includeForex) {
+      try {
+        const resp = await tdClient.get(`/forex_pairs?apikey=${TWELVE_API_KEY}`);
+        const arr = Array.isArray(resp.data?.data) ? resp.data.data
+                  : Array.isArray(resp.data?.symbols) ? resp.data.symbols : [];
+        listedForex = arr.map(r => (typeof r === "string" ? r : r?.symbol)).filter(Boolean);
+      } catch (err) {
+        logTwelveError("forex_pairs(list)", err);
+        out.notes.push("No se pudo listar forex_pairs; revisa logs.");
+      }
+    }
+
+    out.crypto.listed = includeCrypto ? listedCrypto : [];
+    out.forex.listed  = includeForex  ? listedForex  : [];
+
+    if (includeCrypto) {
+      const set = new Set(listedCrypto);
+      out.crypto.available = requiredCrypto.filter(s => set.has(s));
+      out.crypto.missing   = requiredCrypto.filter(s => !set.has(s));
+    }
+    if (includeForex) {
+      const set = new Set(listedForex);
+      out.forex.available = requiredForex.filter(s => set.has(s));
+      out.forex.missing   = requiredForex.filter(s => !set.has(s));
+    }
+
+    const probe = [...new Set([...(out.crypto.available||[]), ...(out.forex.available||[])])].slice(0, 30);
+    if (probe.length) {
+      const map = await tdBatchPrices(probe);
+      for (const sym of probe) {
+        const v = map[sym];
+        if (typeof v === "number" && isFinite(v)) out.prices_sample[sym] = v;
+        else console.warn(`[TwelveData][WARN] availability-probe: símbolo=${sym} sin precio numérico. value=`, v);
+      }
+    } else {
+      out.notes.push("No hay símbolos disponibles para probar precio.");
+    }
+
+    console.log(`[TD][avail] CRYPTO req=${out.crypto.required.length} avail=${out.crypto.available.length} miss=${out.crypto.missing.length}`);
+    console.log(`[TD][avail] FOREX  req=${out.forex.required.length} avail=${out.forex.available.length} miss=${out.forex.missing.length}`);
+
+    res.json(out);
+  } catch (e) {
+    console.error("[debug/td-availability] error:", e?.message || e);
     res.status(500).json({ error: e?.message || String(e) });
   }
 });
@@ -538,6 +678,3 @@ app.delete("/usuarios/:id", verifyToken, async (req, res) => {
    ============================ */
 const PORT = process.env.PORT || 3301;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
-
-
-
